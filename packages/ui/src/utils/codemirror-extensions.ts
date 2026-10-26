@@ -2,6 +2,8 @@ import { ViewPlugin, Decoration, EditorView, ViewUpdate } from '@codemirror/view
 import { RangeSetBuilder } from '@codemirror/state'
 import getObjectPathValue from 'lodash.get'
 import { getObjectPaths } from '@/helpers'
+import { isSecretPath, secretPathsOf } from '@/utils/environment-secrets'
+import { MASKED_PREVIEW } from '@/utils/prompt-tag'
 
 // {{name}} or {{ name }}, the name may contain spaces but not start or end with one, and no braces, so one match cannot
 // run on into the next variable
@@ -58,8 +60,10 @@ export function envVarDecoration(envVariables: any) {
                     const isInEnv = envVariableValues.has(varName)
                     const value = envVariableValues.get(varName)
                     const className = isSelected ? '' : (isInEnv ? 'valid-env-var' : 'invalid-env-var')
-                    // an object is substituted as JSON, so it shows as JSON
-                    const titleText = isInEnv ? (typeof value === 'object' ? JSON.stringify(value) : String(value)) : 'Environment variable not found'
+                    const secretName = varName.startsWith('_.') ? varName.slice(2) : varName
+                    const secret = isInEnv && isSecretPath(secretName, secretPathsOf(envVariables ?? {}))
+                    // an object is substituted as JSON, so it shows as JSON. A secret stays hidden in the tooltip
+                    const titleText = !isInEnv ? 'Environment variable not found' : secret ? MASKED_PREVIEW : (typeof value === 'object' ? JSON.stringify(value) : String(value))
                     const decoration = Decoration.mark({
                         class: className,
                         attributes: { title: titleText }

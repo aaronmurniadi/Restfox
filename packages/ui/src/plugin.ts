@@ -20,9 +20,14 @@ import {
 } from './global'
 import constants from './constants'
 import { PromptCancelledError, replacePromptTagsWithKnownValues } from './utils/prompt-tag'
+import { isSecretPath, secretPathsOf } from './utils/environment-secrets'
 
 // send is the send the script runs in, which learns when it reads a masked prompt's value
 function getEnvironmentVariable(environment: any, objectPath: string, send?: SendResolver) {
+    // a script that read a secret may have written it anywhere, so the send keeps nothing that could quote it
+    if(send && isSecretPath(objectPath, secretPathsOf(environment))) {
+        send.markScriptReadMaskedPrompt()
+    }
     const value = getObjectPathValue(environment, objectPath)
     return typeof value === 'string' ? replacePromptTagsWithKnownValues(value, send?.workspaceId, () => send?.markScriptReadMaskedPrompt()) : value
 }

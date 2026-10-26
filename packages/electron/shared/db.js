@@ -38,6 +38,7 @@ export function createDatabase(fileUtils, dbHelpers, dotenv, getWorkspaceWatcher
                 workspaceData.environments = environments
                 workspaceData.environment = environment
                 workspaceData.currentEnvironment = currentEnvironment
+                workspaceData.globalSecrets = await dbHelpers.readGlobalSecrets(location)
 
                 const dotEnvPath = path.resolve(location, '.env')
 
@@ -78,6 +79,14 @@ export function createDatabase(fileUtils, dbHelpers, dotenv, getWorkspaceWatcher
 
         if (updatedFields.currentEnvironment) {
             update.currentEnvironment = updatedFields.currentEnvironment
+        }
+
+        if (updatedFields.globals !== undefined) {
+            update.globals = updatedFields.globals
+        }
+
+        if (updatedFields.globalSecrets !== undefined) {
+            await dbHelpers.saveGlobalSecrets(fsLog, workspacePath, updatedFields.globalSecrets)
         }
 
         if (Object.keys(update).length === 0) {

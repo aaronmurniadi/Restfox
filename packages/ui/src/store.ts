@@ -56,6 +56,7 @@ import { nextTick } from 'vue'
 import { clearSkipPersistingActiveTabAfterUpdate } from '@/utils/skip-persisting-active-tab'
 import constants from './constants'
 import { emitter } from './event-bus'
+import { buildResolvedEnvironment } from './utils/environment-secrets'
 import {
     CollectionItem,
     Plugin,
@@ -179,36 +180,32 @@ function getAllParents(collection: CollectionItem[], parentArray: CollectionItem
     }
 }
 
-async function getEnvironmentForRequest(requestWorkspace: Workspace, requestParentArray: CollectionItem[]) {
-    let environment = requestWorkspace.environment ? JSON.parse(JSON.stringify(requestWorkspace.environment)) : {}
-
-    if(requestWorkspace._type === 'file') {
-        const dotEnv = requestWorkspace._type === 'file' ? requestWorkspace.dotEnv as Record<string, string> : {}
-        Object.keys(dotEnv).forEach(key => {
-            // this varName array join trick is needed as vite build changes all strings that match process.env to {}
-            const varName = [
-                'process',
-                'env',
-                key
-            ].join('.')
-            environment[varName] = dotEnv[key]
-        })
-        // substitute process.env variables in workspace environment
-        environment = JSON.parse(await substituteEnvironmentVariables(environment, JSON.stringify(environment), { resolvePromptTags: false }))
+function environmentFieldsForCopy(source: { environment?: any, environments?: any[], currentEnvironment?: any, globals?: any, globalSecrets?: any }): Partial<Workspace> {
+    const copy: Partial<Workspace> = {
+        environment: source.environment,
+        environments: source.environments,
+        currentEnvironment: source.currentEnvironment,
     }
+
+    if(source.globals !== undefined) {
+        copy.globals = source.globals
+    }
+
+    if(source.globalSecrets !== undefined) {
+        copy.globalSecrets = source.globalSecrets
+    }
+
+    return copy
+}
+
+async function getEnvironmentForRequest(requestWorkspace: Workspace, requestParentArray: CollectionItem[]) {
+    // a prompt tag is left for the send, this runs for every open tab on each tab switch
+    const environment = await buildResolvedEnvironment(requestWorkspace, requestParentArray, (layer, text) => substituteEnvironmentVariables(layer, text, { resolvePromptTags: false }))
 
     const headers: Record<string, string[]> = {}
     let authentication: RequestAuthentication | undefined = undefined
 
     for(const parent of requestParentArray) {
-        if(parent.environment) {
-            let tempEnvironment = JSON.stringify(parent.environment)
-            // a prompt tag is left for the send, this runs for every open tab on each tab switch
-            tempEnvironment = await substituteEnvironmentVariables(environment, tempEnvironment, { resolvePromptTags: false })
-            tempEnvironment = JSON.parse(tempEnvironment)
-            Object.assign(environment, tempEnvironment)
-        }
-
         if(parent.authentication && hasOwnAuthentication(parent.authentication)) {
             authentication = parent.authentication
         } else if(getAuthenticationType(parent.authentication) === 'none') {
@@ -571,6 +568,16 @@ export const store = createStore<State>({
         async updateWorkspaceEnvironments(_state, { workspaceId, environments }) {
             if(environments) {
                 await updateWorkspace(workspaceId, { environments: JSON.parse(JSON.stringify(environments)) })
+            }
+        },
+        async updateWorkspaceGlobals(_state, { workspaceId, globals }) {
+            if(globals) {
+                await updateWorkspace(workspaceId, { globals: JSON.parse(JSON.stringify(globals)) })
+            }
+        },
+        async updateWorkspaceGlobalSecrets(_state, { workspaceId, globalSecrets }) {
+            if(globalSecrets) {
+                await updateWorkspace(workspaceId, { globalSecrets: JSON.parse(JSON.stringify(globalSecrets)) })
             }
         },
         async updateCollectionItemCurrentEnvironment(state, { collectionId, currentEnvironment }) {
@@ -1750,19 +1757,11 @@ export const store = createStore<State>({
             // is not null if file workspace
             if(workspace) {
                 if(workspace.environment) {
-                    updateWorkspaceObject = {
-                        environment: workspace.environment,
-                        environments: workspace.environments,
-                        currentEnvironment: workspace.currentEnvironment,
-                    }
+                    updateWorkspaceObject = environmentFieldsForCopy(workspace)
                 }
             } else {
                 // get workspace environment for non-file workspaces
-                updateWorkspaceObject = {
-                    environment: sourceWorkspace.environment,
-                    environments: sourceWorkspace.environments,
-                    currentEnvironment: sourceWorkspace.currentEnvironment,
-                }
+                updateWorkspaceObject = environmentFieldsForCopy(sourceWorkspace)
             }
 
             if(updateWorkspaceObject && Object.keys(updateWorkspaceObject).length > 0) {
@@ -1893,6 +1892,8 @@ export const store = createStore<State>({
                     context.state.activeWorkspace.environment = workspace.environment
                     context.state.activeWorkspace.environments = workspace.environments
                     context.state.activeWorkspace.currentEnvironment = workspace.currentEnvironment
+                    context.state.activeWorkspace.globals = workspace.globals
+                    context.state.activeWorkspace.globalSecrets = workspace.globalSecrets
                     context.state.activeWorkspace.dotEnv = workspace.dotEnv
                     emitter.emit('dotenv', 'reloaded')
                 }

@@ -1,23 +1,65 @@
 <template>
     <form @submit.prevent="done" v-if="showModalComp">
-        <modal :title="`Environment (JSON Format) — ${collectionItem ? collectionItem.name : workspace.name}`" v-model="showModalComp" height="70vh" width="55rem">
+        <modal
+            :title="`Environment (JSON Format) — ${collectionItem ? collectionItem.name : workspace.name}`"
+            v-model="showModalComp"
+            height="70vh"
+            width="55rem"
+        >
             <template #after-title>
                 <button type="button" class="button" @click="importEnvironment">
                     <i class="fa fa-file-import"></i> Import
                 </button>
-                <button type="button" class="button ml-1rem" @click="exportEnvironment">
+                <button
+                    type="button"
+                    class="button ml-1rem"
+                    @click="exportEnvironment"
+                >
                     <i class="fa fa-file-export"></i> Export
                 </button>
             </template>
 
             <div class="env-body">
                 <div class="env-sidebar-col">
-                    <button class="button" type="button" style="margin-bottom: 0.5rem; margin-right: 0.5rem;" @click="addEnvironment()">Add Environment</button>
-                    <div style="overflow-y: auto;" class="environment-sidebar">
+                    <button
+                        class="button"
+                        type="button"
+                        style="margin-bottom: 0.5rem; margin-right: 0.5rem"
+                        @click="addEnvironment()"
+                    >
+                        Add Environment
+                    </button>
+                    <div style="overflow-y: auto" class="environment-sidebar">
                         <div
-                            v-for="(environment, index) in environments" :key="environment.name"
+                            v-if="workspace"
                             class="environment-sidebar-item"
-                            :class="{ 'environment-sidebar-item-active': environment.name === currentEnvironment }"
+                            :class="{
+                                'environment-sidebar-item-active':
+                                    editingGlobals,
+                            }"
+                            @click="editGlobals"
+                        >
+                            <div style="display: flex; align-items: center">
+                                <i
+                                    class="fa fa-globe"
+                                    style="margin-right: 0.5rem"
+                                ></i
+                                >Globals
+                            </div>
+                        </div>
+                        <div
+                            v-if="workspace"
+                            class="environment-sidebar-divider"
+                        ></div>
+                        <div
+                            v-for="(environment, index) in environments"
+                            :key="environment.name"
+                            class="environment-sidebar-item"
+                            :class="{
+                                'environment-sidebar-item-active':
+                                    !editingGlobals &&
+                                    environment.name === currentEnvironment,
+                            }"
                             @click="changeEnvironment(environment)"
                             :ref="'environment-' + environment.name"
                             draggable="true"
@@ -27,14 +69,48 @@
                             @drop="onDrop(index)"
                             @dragend="onDragEnd"
                         >
-                            <div style="display: flex; align-items: center;">
-                                <i class="fa fa-circle" :style="{ color: environment.color, marginRight: '0.5rem' }"></i>{{ environment.name }}
+                            <div style="display: flex; align-items: center">
+                                <i
+                                    class="fa fa-circle"
+                                    :style="{
+                                        color: environment.color,
+                                        marginRight: '0.5rem',
+                                    }"
+                                ></i
+                                >{{ environment.name }}
                             </div>
 
-                            <div class="environment-sidebar-item-menu" :class="{ 'environment-sidebar-item-menu-disable-hide': environment.name === clickedContextMenuEnvironment.name && showEnvironmentContextMenuPopup === true }" @click.stop="showEnvironmentContextMenu($event, environment)">
-                                <svg viewBox="0 0 24 24" focusable="false" style="pointer-events: none; display: block; width: 100%; height: 100%;">
+                            <div
+                                class="environment-sidebar-item-menu"
+                                :class="{
+                                    'environment-sidebar-item-menu-disable-hide':
+                                        environment.name ===
+                                            clickedContextMenuEnvironment.name &&
+                                        showEnvironmentContextMenuPopup ===
+                                            true,
+                                }"
+                                @click.stop="
+                                    showEnvironmentContextMenu(
+                                        $event,
+                                        environment,
+                                    )
+                                "
+                            >
+                                <svg
+                                    viewBox="0 0 24 24"
+                                    focusable="false"
+                                    style="
+                                        pointer-events: none;
+                                        display: block;
+                                        width: 100%;
+                                        height: 100%;
+                                    "
+                                >
                                     <g>
-                                        <path d="M12,16.5c0.83,0,1.5,0.67,1.5,1.5s-0.67,1.5-1.5,1.5s-1.5-0.67-1.5-1.5S11.17,16.5,12,16.5z M10.5,12 c0,0.83,0.67,1.5,1.5,1.5s1.5-0.67,1.5-1.5s-0.67-1.5-1.5-1.5S10.5,11.17,10.5,12z M10.5,6c0,0.83,0.67,1.5,1.5,1.5 s1.5-0.67,1.5-1.5S12.83,4.5,12,4.5S10.5,5.17,10.5,6z" style="fill: var(--text-color);"></path>
+                                        <path
+                                            d="M12,16.5c0.83,0,1.5,0.67,1.5,1.5s-0.67,1.5-1.5,1.5s-1.5-0.67-1.5-1.5S11.17,16.5,12,16.5z M10.5,12 c0,0.83,0.67,1.5,1.5,1.5s1.5-0.67,1.5-1.5s-0.67-1.5-1.5-1.5S10.5,11.17,10.5,12z M10.5,6c0,0.83,0.67,1.5,1.5,1.5 s1.5-0.67,1.5-1.5S12.83,4.5,12,4.5S10.5,5.17,10.5,6z"
+                                            style="fill: var(--text-color)"
+                                        ></path>
                                     </g>
                                 </svg>
                             </div>
@@ -42,27 +118,100 @@
                     </div>
                 </div>
                 <div class="env-editor-col">
+                    <div class="env-editor-tabs">
+                        <button
+                            type="button"
+                            class="button"
+                            :class="{
+                                'env-editor-tab-active':
+                                    editorMode === 'variables',
+                            }"
+                            @click="setEditorMode('variables')"
+                        >
+                            Variables
+                        </button>
+                        <button
+                            type="button"
+                            class="button"
+                            :class="{
+                                'env-editor-tab-active':
+                                    editorMode === 'secrets',
+                            }"
+                            @click="setEditorMode('secrets')"
+                        >
+                            Secrets
+                        </button>
+                    </div>
                     <CodeMirrorEditor
                         v-model="environment"
                         lang="json"
                         :env-variables="envVariables"
                         :autocompletions="tagAutocompletions"
                         @tagClick="onTagClick"
-                        style="overflow: auto;"
-                        :key="currentEnvironment"
+                        style="overflow: auto"
+                        :key="editorKey"
                     ></CodeMirrorEditor>
                     <div style="margin-top: 1rem">
-                        <div v-if="parseError" class="box">{{ parseError }}</div>
-                        <div class="box box-hidden" v-else>
-                            Spacer Text
+                        <div v-if="parseError" class="box">
+                            {{ parseError }}
                         </div>
+                        <div class="box box-hidden" v-else>Spacer Text</div>
                     </div>
                 </div>
             </div>
 
             <template #footer>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div style="font-size: 0.75rem; text-align: left; line-height: 1rem; margin-right: 0.5rem;" v-pre><span class="code">"key": "value"</span> pairs defined in the above JSON object can be referenced in any text input in the request panel using <span class="code">{{ key }}</span> for variable substitution</div>
+                <div
+                    style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                    "
+                >
+                    <div
+                        v-if="editorMode === 'secrets'"
+                        style="
+                            font-size: 0.75rem;
+                            text-align: left;
+                            line-height: 1rem;
+                            margin-right: 0.5rem;
+                        "
+                    >
+                        Secret values are referenced like other variables and
+                        are sent with the request. They are masked in the URL
+                        preview, history, and variable tooltips, stored apart
+                        from the environment, and left out of exports.
+                    </div>
+                    <div
+                        v-else-if="editingGlobals"
+                        style="
+                            font-size: 0.75rem;
+                            text-align: left;
+                            line-height: 1rem;
+                            margin-right: 0.5rem;
+                        "
+                    >
+                        Globals are available in every request in this
+                        workspace. The selected environment and folder
+                        environments override a global of the same name.
+                    </div>
+                    <div
+                        v-else
+                        style="
+                            font-size: 0.75rem;
+                            text-align: left;
+                            line-height: 1rem;
+                            margin-right: 0.5rem;
+                        "
+                    >
+                        <span v-pre
+                            ><span class="code">"key": "value"</span> pairs
+                            defined in the above JSON object can be referenced
+                            in any text input in the request panel using
+                            <span class="code">{{ key }}</span> for variable
+                            substitution</span
+                        >
+                    </div>
                     <div>
                         <button class="button">Done</button>
                     </div>
@@ -70,8 +219,17 @@
             </template>
         </modal>
         <template v-if="showEnvironmentContextMenuPopup">
-            <div class="context-menu-background-overlay" @click="hideEnvironmentContextMenu()"></div>
-            <div class="context-menu" :style="{ top: showEnvironmentContextMenuPopupCoords.y, left: showEnvironmentContextMenuPopupCoords.x }">
+            <div
+                class="context-menu-background-overlay"
+                @click="hideEnvironmentContextMenu()"
+            ></div>
+            <div
+                class="context-menu"
+                :style="{
+                    top: showEnvironmentContextMenuPopupCoords.y,
+                    left: showEnvironmentContextMenuPopupCoords.x,
+                }"
+            >
                 <div @click="renameEnvironment">Rename</div>
                 <div @click="changeEnvironmentColor">Change color</div>
                 <div @click="deleteEnvironment">Delete</div>
@@ -87,19 +245,25 @@
 </template>
 
 <script>
-import Modal from '@/components/Modal.vue'
-import CodeMirrorEditor from '@/components/CodeMirrorEditor.vue'
-import EditTagModal from '@/components/modals/EditTagModal.vue'
-import { nextTick } from 'vue'
-import { emitter } from '@/event-bus'
-import constants from '@/constants'
-import { jsonStringify } from '@/helpers'
+import Modal from "@/components/Modal.vue";
+import CodeMirrorEditor from "@/components/CodeMirrorEditor.vue";
+import EditTagModal from "@/components/modals/EditTagModal.vue";
+import { nextTick } from "vue";
+import { emitter } from "@/event-bus";
+import constants from "@/constants";
+import { jsonStringify } from "@/helpers";
+import {
+    applyPublicLayer,
+    applySecretLayer,
+    attachSecretPaths,
+} from "@/utils/environment-secrets";
+import { convertPostmanVariableValues } from "@/parsers/postman";
 
 export default {
     props: {
         showModal: Boolean,
         collectionItem: Object,
-        workspace: Object
+        workspace: Object,
     },
     components: {
         Modal,
@@ -108,458 +272,834 @@ export default {
     },
     data() {
         return {
-            environment: '{}',
+            environment: "{}",
             environmentToSave: {},
-            parseError: '',
-            clickedContextMenuEnvironment: { name: '' },
+            parseError: "",
+            clickedContextMenuEnvironment: { name: "" },
             showEnvironmentContextMenuPopup: false,
             showEnvironmentContextMenuPopupCoords: {
-                x: '',
-                y: ''
+                x: "",
+                y: "",
             },
             envVariables: {},
+            editorMode: "variables",
+            editingGlobals: false,
             editTagModalShow: false,
             editTagParsedFunc: null,
             editTagUpdateFunc: null,
-            draggedEnvironmentIndex: null
-        }
+            draggedEnvironmentIndex: null,
+        };
     },
     computed: {
         showModalComp: {
             get() {
-                return this.showModal
+                return this.showModal;
             },
             set(value) {
                 if (this.parseError) {
-                    this.$toast.error('Invalid JSON. Please fix the error before closing the editor.')
-                    return
+                    this.$toast.error(
+                        "Invalid JSON. Please fix the error before closing the editor.",
+                    );
+                    return;
                 }
 
-                this.$emit('update:showModal', value)
-            }
+                this.$emit("update:showModal", value);
+            },
         },
         environments() {
-            if(this.collectionItem) {
-                return this.collectionItem.environments ?? [
-                    {
-                        name: constants.DEFAULT_ENVIRONMENT.name,
-                        environment: this.environmentToSave,
-                        color: constants.DEFAULT_ENVIRONMENT.color
-                    }
-                ]
+            if (this.collectionItem) {
+                return (
+                    this.collectionItem.environments ?? [
+                        {
+                            name: constants.DEFAULT_ENVIRONMENT.name,
+                            environment: this.environmentToSave,
+                            color: constants.DEFAULT_ENVIRONMENT.color,
+                        },
+                    ]
+                );
             }
 
-            if(this.workspace) {
-                return this.workspace.environments ?? [
-                    {
-                        name: constants.DEFAULT_ENVIRONMENT.name,
-                        environment: this.environmentToSave,
-                        color: constants.DEFAULT_ENVIRONMENT.color
-                    }
-                ]
+            if (this.workspace) {
+                return (
+                    this.workspace.environments ?? [
+                        {
+                            name: constants.DEFAULT_ENVIRONMENT.name,
+                            environment: this.environmentToSave,
+                            color: constants.DEFAULT_ENVIRONMENT.color,
+                        },
+                    ]
+                );
             }
 
-            return undefined
+            return undefined;
         },
         currentEnvironment() {
-            if(this.collectionItem) {
-                return this.collectionItem.currentEnvironment ?? constants.DEFAULT_ENVIRONMENT.name
+            if (this.collectionItem) {
+                return (
+                    this.collectionItem.currentEnvironment ??
+                    constants.DEFAULT_ENVIRONMENT.name
+                );
             }
 
-            if(this.workspace) {
-                return this.workspace.currentEnvironment ?? constants.DEFAULT_ENVIRONMENT.name
+            if (this.workspace) {
+                return (
+                    this.workspace.currentEnvironment ??
+                    constants.DEFAULT_ENVIRONMENT.name
+                );
             }
 
-            return undefined
+            return undefined;
+        },
+        editorKey() {
+            return `${this.editingGlobals ? "globals" : this.currentEnvironment}-${this.editorMode}`;
         },
         tagAutocompletions() {
-            return constants.AUTOCOMPLETIONS.TAGS
-        }
+            return constants.AUTOCOMPLETIONS.TAGS;
+        },
     },
     watch: {
         collectionItem() {
-            this.environment = this.collectionItem.environment ? jsonStringify(this.collectionItem.environment) : '{}'
+            this.environment = this.collectionItem.environment
+                ? jsonStringify(this.collectionItem.environment)
+                : "{}";
         },
         workspace() {
-            this.environment = this.workspace.environment ? jsonStringify(this.workspace.environment) : '{}'
+            this.environment = this.workspace.environment
+                ? jsonStringify(this.workspace.environment)
+                : "{}";
         },
         environment() {
-            let environment = {}
+            let environment = {};
             try {
-                environment = JSON.parse(this.environment)
-                this.parseError = ''
-                this.environmentToSave = environment
-                console.log('environment changed', environment)
-                this.saveEnvironment()
-            } catch(e) {
-                this.parseError = e.message
+                environment = JSON.parse(this.environment);
+                this.parseError = "";
+            } catch (e) {
+                this.parseError = e.message;
+                return;
             }
+
+            if (this.editingGlobals) {
+                this.persistGlobals(environment);
+                return;
+            }
+
+            if (this.editorMode === "secrets") {
+                this.persistSecrets(environment);
+                return;
+            }
+
+            this.environmentToSave = environment;
+            this.saveEnvironment();
         },
         showModal() {
-            if(this.showModal) {
-                this.parseError = ''
-                if(this.collectionItem) {
-                    this.environment = this.collectionItem.environment ? jsonStringify(this.collectionItem.environment) : '{}'
+            if (this.showModal) {
+                this.parseError = "";
+                this.editingGlobals = false;
+                this.editorMode = "variables";
+                if (this.collectionItem) {
+                    this.environment = this.collectionItem.environment
+                        ? jsonStringify(this.collectionItem.environment)
+                        : "{}";
                 }
-                if(this.workspace) {
-                    this.environment = this.workspace.environment ? jsonStringify(this.workspace.environment) : '{}'
+                if (this.workspace) {
+                    this.environment = this.workspace.environment
+                        ? jsonStringify(this.workspace.environment)
+                        : "{}";
                 }
                 nextTick(() => {
-                    this.$refs['environment-' + this.currentEnvironment][0].scrollIntoView({
-                        behavior: 'auto',
-                        block: 'center',
-                        inline: 'center'
-                    })
-                })
+                    this.$refs[
+                        "environment-" + this.currentEnvironment
+                    ][0].scrollIntoView({
+                        behavior: "auto",
+                        block: "center",
+                        inline: "center",
+                    });
+                });
 
-                this.loadEnvVariables()
+                this.loadEnvVariables();
             }
-        }
+        },
     },
     methods: {
         async done() {
-            this.showModalComp = false
+            this.showModalComp = false;
         },
-        async addEnvironment(newEnvironmentName = undefined, environmentObject = undefined) {
-            const isImport = environmentObject !== undefined
-            let isMerge = false
+        async addEnvironment(
+            newEnvironmentName = undefined,
+            environmentObject = undefined,
+            secretsObject = undefined,
+        ) {
+            const isImport = environmentObject !== undefined;
+            let isMerge = false;
 
-            if(newEnvironmentName === undefined) {
-                newEnvironmentName = await window.createPrompt('Enter new environment name')
+            if (newEnvironmentName === undefined) {
+                newEnvironmentName = await window.createPrompt(
+                    "Enter new environment name",
+                );
 
-                if(!newEnvironmentName || newEnvironmentName.trim() === '') {
-                    return
+                if (!newEnvironmentName || newEnvironmentName.trim() === "") {
+                    return;
                 }
             }
 
-            const environmentColor = await window.createPrompt('Choose a color for the environment', constants.DEFAULT_ENVIRONMENT.color)
+            const environmentColor = await window.createPrompt(
+                "Choose a color for the environment",
+                constants.DEFAULT_ENVIRONMENT.color,
+            );
 
-            if(this.environments.some(environment => environment.name === newEnvironmentName)) {
-                if(!isImport) {
-                    this.$toast.error(`Given environment name already exists: ${newEnvironmentName}`)
-                    return
+            if (
+                this.environments.some(
+                    (environment) => environment.name === newEnvironmentName,
+                )
+            ) {
+                if (!isImport) {
+                    this.$toast.error(
+                        `Given environment name already exists: ${newEnvironmentName}`,
+                    );
+                    return;
                 } else {
-                    if(!await window.createConfirm(`Given environment name already exists: ${newEnvironmentName}\nDo you want to merge with the existing one?`)) {
-                        return
+                    if (
+                        !(await window.createConfirm(
+                            `Given environment name already exists: ${newEnvironmentName}\nDo you want to merge with the existing one?`,
+                        ))
+                    ) {
+                        return;
                     }
 
-                    isMerge = true
+                    isMerge = true;
                 }
             }
 
-            let environment = { name: newEnvironmentName, color: environmentColor || constants.DEFAULT_ENVIRONMENT.color, environment: {} }
+            let environment = {
+                name: newEnvironmentName,
+                color: environmentColor || constants.DEFAULT_ENVIRONMENT.color,
+                environment: {},
+            };
 
-            if(!isMerge) {
-                if(environmentObject !== undefined) {
-                    environment.environment = environmentObject
+            if (!isMerge) {
+                if (environmentObject !== undefined) {
+                    environment.environment = environmentObject;
                 }
 
-                if(this.collectionItem) {
-                    if(!('environments' in this.collectionItem)) {
+                if (
+                    secretsObject !== undefined &&
+                    Object.keys(secretsObject).length > 0
+                ) {
+                    environment.secrets = secretsObject;
+                }
+
+                if (this.collectionItem) {
+                    if (!("environments" in this.collectionItem)) {
                         this.collectionItem.environments = [
                             {
                                 name: constants.DEFAULT_ENVIRONMENT.name,
                                 color: constants.DEFAULT_ENVIRONMENT.color,
-                                environment: this.environmentToSave
-                            }
-                        ]
+                                environment: this.environmentToSave,
+                            },
+                        ];
                     }
-                    this.collectionItem.environments.push(environment)
+                    this.collectionItem.environments.push(environment);
                 }
 
-                if(this.workspace) {
-                    if(!('environments' in this.workspace)) {
+                if (this.workspace) {
+                    if (!("environments" in this.workspace)) {
                         this.workspace.environments = [
                             {
                                 name: constants.DEFAULT_ENVIRONMENT.name,
                                 color: constants.DEFAULT_ENVIRONMENT.color,
-                                environment: this.environmentToSave
-                            }
-                        ]
+                                environment: this.environmentToSave,
+                            },
+                        ];
                     }
-                    this.workspace.environments.push(environment)
+                    this.workspace.environments.push(environment);
                 }
             } else {
-                const existingEnvironment = this.environments.find(environment => environment.name === newEnvironmentName)
-                existingEnvironment.environment = { ...existingEnvironment.environment, ...environmentObject }
-                environment = existingEnvironment
+                const existingEnvironment = this.environments.find(
+                    (environment) => environment.name === newEnvironmentName,
+                );
+                existingEnvironment.environment = {
+                    ...existingEnvironment.environment,
+                    ...environmentObject,
+                };
+                if (
+                    secretsObject !== undefined &&
+                    Object.keys(secretsObject).length > 0
+                ) {
+                    existingEnvironment.secrets = {
+                        ...(existingEnvironment.secrets ?? {}),
+                        ...secretsObject,
+                    };
+                }
+                environment = existingEnvironment;
             }
 
-            this.changeEnvironment(environment)
+            this.changeEnvironment(environment);
 
             nextTick(() => {
-                this.$refs['environment-' + environment.name][0].scrollIntoView({
-                    behavior: 'auto',
-                    block: 'center',
-                    inline: 'center'
-                })
-            })
+                this.$refs["environment-" + environment.name][0].scrollIntoView(
+                    {
+                        behavior: "auto",
+                        block: "center",
+                        inline: "center",
+                    },
+                );
+            });
         },
         changeEnvironment(environment) {
-            if(this.collectionItem) {
-                this.collectionItem.currentEnvironment = environment.name
+            if (this.parseError) {
+                this.$toast.error(
+                    "Invalid JSON. Please fix the error before switching.",
+                );
+                return;
             }
 
-            if(this.workspace) {
-                this.workspace.currentEnvironment = environment.name
+            this.editingGlobals = false;
+
+            if (this.collectionItem) {
+                this.collectionItem.currentEnvironment = environment.name;
             }
 
-            this.saveCurrentEnvironment()
+            if (this.workspace) {
+                this.workspace.currentEnvironment = environment.name;
+            }
 
-            const environmentString = jsonStringify(environment.environment)
+            this.saveCurrentEnvironment();
 
-            let manuallyTriggerSave = false
+            const environmentSource =
+                this.editorMode === "secrets"
+                    ? (environment.secrets ?? {})
+                    : environment.environment;
+            const environmentString = jsonStringify(environmentSource);
+
+            let manuallyTriggerSave = false;
 
             // environment watch doesn't trigger when value is same as before,
             // so we need to do this trick, to save the new environment
-            if(environmentString === this.environment) {
-                manuallyTriggerSave = true
+            if (environmentString === this.environment) {
+                manuallyTriggerSave = true;
             }
 
-            this.environment = environmentString
+            this.environment = environmentString;
 
-            if(manuallyTriggerSave) {
-                this.saveEnvironment()
+            if (manuallyTriggerSave) {
+                const parsed = JSON.parse(this.environment);
+                if (this.editorMode === "secrets") {
+                    this.persistSecrets(parsed);
+                } else {
+                    this.environmentToSave = parsed;
+                    this.saveEnvironment();
+                }
             }
         },
+        editGlobals() {
+            if (!this.workspace) {
+                return;
+            }
+
+            if (this.parseError) {
+                this.$toast.error(
+                    "Invalid JSON. Please fix the error before switching.",
+                );
+                return;
+            }
+
+            this.editingGlobals = true;
+            const source =
+                this.editorMode === "secrets"
+                    ? (this.workspace.globalSecrets ?? {})
+                    : (this.workspace.globals ?? {});
+            this.environment = jsonStringify(source);
+        },
+        setEditorMode(mode) {
+            if (this.editorMode === mode) {
+                return;
+            }
+
+            if (this.parseError) {
+                this.$toast.error(
+                    "Invalid JSON. Please fix the error before switching.",
+                );
+                return;
+            }
+
+            this.editorMode = mode;
+            this.loadEditorText();
+        },
+        loadEditorText() {
+            let source = {};
+
+            if (this.editingGlobals) {
+                source =
+                    this.editorMode === "secrets"
+                        ? (this.workspace.globalSecrets ?? {})
+                        : (this.workspace.globals ?? {});
+            } else {
+                const current = this.environments?.find(
+                    (environment) =>
+                        environment.name === this.currentEnvironment,
+                );
+                source =
+                    this.editorMode === "secrets"
+                        ? (current?.secrets ?? {})
+                        : (current?.environment ??
+                          this.environmentToSave ??
+                          {});
+            }
+
+            this.environment = jsonStringify(source);
+        },
+        persistGlobals(value) {
+            if (this.editorMode === "secrets") {
+                this.workspace.globalSecrets = value;
+                this.$store.commit("updateWorkspaceGlobalSecrets", {
+                    workspaceId: this.workspace._id,
+                    globalSecrets: value,
+                });
+            } else {
+                this.workspace.globals = value;
+                this.$store.commit("updateWorkspaceGlobals", {
+                    workspaceId: this.workspace._id,
+                    globals: value,
+                });
+            }
+
+            this.$store.dispatch("reloadTabEnvironmentResolved");
+            this.loadEnvVariables();
+        },
+        persistSecrets(value) {
+            if (this.collectionItem && !this.collectionItem.environments) {
+                this.collectionItem.environments = this.environments;
+            }
+
+            if (this.workspace && !this.workspace.environments) {
+                this.workspace.environments = this.environments;
+            }
+
+            const current = this.environments.find(
+                (environment) => environment.name === this.currentEnvironment,
+            );
+            if (!current) {
+                return;
+            }
+
+            current.secrets = value;
+            this.saveEnvironments();
+        },
         onDragStart(index, event) {
-            this.draggedEnvironmentIndex = index
+            this.draggedEnvironmentIndex = index;
             if (event.dataTransfer) {
-                event.dataTransfer.effectAllowed = 'move'
-                event.dataTransfer.setData('text/plain', index)
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", index);
             }
         },
         onDrop(dropIndex) {
-            if (this.draggedEnvironmentIndex === null || this.draggedEnvironmentIndex === dropIndex) {
-                return
+            if (
+                this.draggedEnvironmentIndex === null ||
+                this.draggedEnvironmentIndex === dropIndex
+            ) {
+                return;
             }
 
-            const draggedItem = this.environments.splice(this.draggedEnvironmentIndex, 1)[0]
-            this.environments.splice(dropIndex, 0, draggedItem)
-            this.saveEnvironments()
-            this.draggedEnvironmentIndex = null
+            const draggedItem = this.environments.splice(
+                this.draggedEnvironmentIndex,
+                1,
+            )[0];
+            this.environments.splice(dropIndex, 0, draggedItem);
+            this.saveEnvironments();
+            this.draggedEnvironmentIndex = null;
         },
         onDragEnd() {
-            this.draggedEnvironmentIndex = null
+            this.draggedEnvironmentIndex = null;
         },
         saveEnvironment() {
-            if(this.collectionItem) {
-                this.collectionItem.environment = this.environmentToSave
-                this.$store.commit('updateCollectionItemEnvironment', { collectionId: this.collectionItem._id, environment: this.environmentToSave })
+            if (this.collectionItem) {
+                this.collectionItem.environment = this.environmentToSave;
+                this.$store.commit("updateCollectionItemEnvironment", {
+                    collectionId: this.collectionItem._id,
+                    environment: this.environmentToSave,
+                });
             }
 
-            if(this.workspace) {
-                this.workspace.environment = this.environmentToSave
-                this.$store.commit('updateWorkspaceEnvironment',  { workspaceId: this.workspace._id, environment: this.environmentToSave })
+            if (this.workspace) {
+                this.workspace.environment = this.environmentToSave;
+                this.$store.commit("updateWorkspaceEnvironment", {
+                    workspaceId: this.workspace._id,
+                    environment: this.environmentToSave,
+                });
             }
 
-            const currentEnvironment = this.environments.find(environmentItem => environmentItem.name === this.currentEnvironment)
-            currentEnvironment.environment = this.environmentToSave
+            const currentEnvironment = this.environments.find(
+                (environmentItem) =>
+                    environmentItem.name === this.currentEnvironment,
+            );
+            currentEnvironment.environment = this.environmentToSave;
 
-            this.saveEnvironments()
+            this.saveEnvironments();
         },
         saveEnvironments() {
             // a fresh workspace / folder has no environments array yet (missing or undefined), so the computed builds a temporary one;
             // attach it before saving, otherwise the in-memory item stays without environments until reload
             // and a following import merges against an empty list and overwrites the saved default environment
-            if(this.collectionItem && !this.collectionItem.environments) {
-                this.collectionItem.environments = this.environments
+            if (this.collectionItem && !this.collectionItem.environments) {
+                this.collectionItem.environments = this.environments;
             }
 
-            if(this.workspace && !this.workspace.environments) {
-                this.workspace.environments = this.environments
+            if (this.workspace && !this.workspace.environments) {
+                this.workspace.environments = this.environments;
             }
 
-            if(this.collectionItem) {
-                this.$store.commit('updateCollectionItemEnvironments', { collectionId: this.collectionItem._id, environments: this.environments })
+            if (this.collectionItem) {
+                this.$store.commit("updateCollectionItemEnvironments", {
+                    collectionId: this.collectionItem._id,
+                    environments: this.environments,
+                });
             }
 
-            if(this.workspace) {
-                console.log('updating workspace environments', this.environments)
-                this.$store.commit('updateWorkspaceEnvironments',  { workspaceId: this.workspace._id, environments: this.environments })
+            if (this.workspace) {
+                console.log(
+                    "updating workspace environments",
+                    this.environments,
+                );
+                this.$store.commit("updateWorkspaceEnvironments", {
+                    workspaceId: this.workspace._id,
+                    environments: this.environments,
+                });
             }
 
-            this.$store.dispatch('reloadTabEnvironmentResolved')
+            this.$store.dispatch("reloadTabEnvironmentResolved");
         },
         saveCurrentEnvironment() {
-            if(this.collectionItem) {
-                this.$store.commit('updateCollectionItemCurrentEnvironment', { collectionId: this.collectionItem._id, currentEnvironment: this.currentEnvironment })
+            if (this.collectionItem) {
+                this.$store.commit("updateCollectionItemCurrentEnvironment", {
+                    collectionId: this.collectionItem._id,
+                    currentEnvironment: this.currentEnvironment,
+                });
             }
 
-            if(this.workspace) {
-                this.$store.commit('updateWorkspaceCurrentEnvironment',  { workspaceId: this.workspace._id, currentEnvironment: this.currentEnvironment })
+            if (this.workspace) {
+                this.$store.commit("updateWorkspaceCurrentEnvironment", {
+                    workspaceId: this.workspace._id,
+                    currentEnvironment: this.currentEnvironment,
+                });
             }
         },
         showEnvironmentContextMenu(event, environment) {
-            if(this.clickedContextMenuEnvironment.name === environment.name && this.showEnvironmentContextMenuPopup === true) {
-                this.hideEnvironmentContextMenu()
-                return
+            if (
+                this.clickedContextMenuEnvironment.name === environment.name &&
+                this.showEnvironmentContextMenuPopup === true
+            ) {
+                this.hideEnvironmentContextMenu();
+                return;
             }
-            const menuElement = event.target
-            var clientRect = menuElement.getBoundingClientRect()
-            var clientX = clientRect.left
-            var clientY = clientRect.top
-            this.clickedContextMenuEnvironment = environment
-            this.showEnvironmentContextMenuPopupCoords.x = clientX + 'px'
-            this.showEnvironmentContextMenuPopupCoords.y = (clientY + clientRect.height + 5) + 'px'
-            this.showEnvironmentContextMenuPopup = true
+            const menuElement = event.target;
+            var clientRect = menuElement.getBoundingClientRect();
+            var clientX = clientRect.left;
+            var clientY = clientRect.top;
+            this.clickedContextMenuEnvironment = environment;
+            this.showEnvironmentContextMenuPopupCoords.x = clientX + "px";
+            this.showEnvironmentContextMenuPopupCoords.y =
+                clientY + clientRect.height + 5 + "px";
+            this.showEnvironmentContextMenuPopup = true;
         },
         hideEnvironmentContextMenu(clearClickedContextMenuEnvironment = true) {
-            if(this.showEnvironmentContextMenuPopup === false) {
-                return
+            if (this.showEnvironmentContextMenuPopup === false) {
+                return;
             }
-            this.showEnvironmentContextMenuPopup = false
-            if(clearClickedContextMenuEnvironment) {
-                this.clickedContextMenuEnvironment = { name: '' }
+            this.showEnvironmentContextMenuPopup = false;
+            if (clearClickedContextMenuEnvironment) {
+                this.clickedContextMenuEnvironment = { name: "" };
             }
         },
         async renameEnvironment() {
-            const newEnvironmentName = await window.createPrompt('Enter new environment name', this.clickedContextMenuEnvironment.name)
+            const newEnvironmentName = await window.createPrompt(
+                "Enter new environment name",
+                this.clickedContextMenuEnvironment.name,
+            );
 
-            if(!newEnvironmentName || newEnvironmentName.trim() === '') {
-                this.hideEnvironmentContextMenu()
-                return
+            if (!newEnvironmentName || newEnvironmentName.trim() === "") {
+                this.hideEnvironmentContextMenu();
+                return;
             }
 
-            if(this.clickedContextMenuEnvironment.name !== newEnvironmentName && this.environments.some(environment => environment.name === newEnvironmentName)) {
-                this.$toast.error('Given environment name already exists')
-                this.hideEnvironmentContextMenu()
-                return
+            if (
+                this.clickedContextMenuEnvironment.name !==
+                    newEnvironmentName &&
+                this.environments.some(
+                    (environment) => environment.name === newEnvironmentName,
+                )
+            ) {
+                this.$toast.error("Given environment name already exists");
+                this.hideEnvironmentContextMenu();
+                return;
             }
 
             // we need this to re set current environment if the changed
             // environment name is the current environment
-            let changeCurrentEnvironment = false
+            let changeCurrentEnvironment = false;
 
-            if(this.clickedContextMenuEnvironment.name === this.currentEnvironment) {
-                changeCurrentEnvironment = true
+            if (
+                this.clickedContextMenuEnvironment.name ===
+                this.currentEnvironment
+            ) {
+                changeCurrentEnvironment = true;
             }
 
-            this.clickedContextMenuEnvironment.name = newEnvironmentName
+            this.clickedContextMenuEnvironment.name = newEnvironmentName;
 
-            if(this.workspace && 'environments' in this.workspace === false) {
-                this.workspace.environments = this.environments
+            if (this.workspace && "environments" in this.workspace === false) {
+                this.workspace.environments = this.environments;
             }
 
-            if(this.collectionItem && 'environments' in this.collectionItem === false) {
-                this.collectionItem.environments = this.environments
+            if (
+                this.collectionItem &&
+                "environments" in this.collectionItem === false
+            ) {
+                this.collectionItem.environments = this.environments;
             }
 
-            this.saveEnvironments()
+            this.saveEnvironments();
 
-            if(changeCurrentEnvironment) {
-                this.changeEnvironment(this.clickedContextMenuEnvironment)
+            if (changeCurrentEnvironment) {
+                this.changeEnvironment(this.clickedContextMenuEnvironment);
             }
 
-            this.hideEnvironmentContextMenu()
+            this.hideEnvironmentContextMenu();
+        },
+        rememberEnvironments() {
+            if (this.workspace && "environments" in this.workspace === false) {
+                this.workspace.environments = this.environments;
+            }
+
+            if (
+                this.collectionItem &&
+                "environments" in this.collectionItem === false
+            ) {
+                this.collectionItem.environments = this.environments;
+            }
         },
         async changeEnvironmentColor() {
-            const newEnvironmentColor = await window.createPrompt('Choose another color for your environment', this.clickedContextMenuEnvironment.color)
+            const newEnvironmentColor = await window.createPrompt(
+                "Choose another color for your environment",
+                this.clickedContextMenuEnvironment.color,
+            );
 
-            this.clickedContextMenuEnvironment.color = newEnvironmentColor
+            this.clickedContextMenuEnvironment.color = newEnvironmentColor;
+            this.rememberEnvironments();
 
-            if(this.workspace && 'environments' in this.workspace === false) {
-                this.workspace.environments = this.environments
-            }
+            this.saveEnvironments();
 
-            if(this.collectionItem && 'environments' in this.collectionItem === false) {
-                this.collectionItem.environments = this.environments
-            }
-
-            this.saveEnvironments()
-
-            this.hideEnvironmentContextMenu()
+            this.hideEnvironmentContextMenu();
         },
         async deleteEnvironment() {
-            if(this.environments.length === 1) {
-                this.$toast.error('Cannot delete environment as there\'s only one environment left')
-                this.hideEnvironmentContextMenu()
-                return
+            if (this.environments.length === 1) {
+                this.$toast.error(
+                    "Cannot delete environment as there's only one environment left",
+                );
+                this.hideEnvironmentContextMenu();
+                return;
             }
 
-            if(!await window.createConfirm('Are you sure you want to delete this environment?')) {
-                this.hideEnvironmentContextMenu()
-                return
+            if (
+                !(await window.createConfirm(
+                    "Are you sure you want to delete this environment?",
+                ))
+            ) {
+                this.hideEnvironmentContextMenu();
+                return;
             }
 
-            if(this.collectionItem) {
-                this.collectionItem.environments = this.environments.filter(environment => environment.name !== this.clickedContextMenuEnvironment.name)
+            if (this.collectionItem) {
+                this.collectionItem.environments = this.environments.filter(
+                    (environment) =>
+                        environment.name !==
+                        this.clickedContextMenuEnvironment.name,
+                );
             }
 
-            if(this.workspace) {
-                this.workspace.environments = this.environments.filter(environment => environment.name !== this.clickedContextMenuEnvironment.name)
+            if (this.workspace) {
+                this.workspace.environments = this.environments.filter(
+                    (environment) =>
+                        environment.name !==
+                        this.clickedContextMenuEnvironment.name,
+                );
             }
 
-            this.saveEnvironments()
+            this.saveEnvironments();
 
-            if(this.clickedContextMenuEnvironment.name === this.currentEnvironment) {
-                this.changeEnvironment(this.environments[0])
+            if (
+                this.clickedContextMenuEnvironment.name ===
+                this.currentEnvironment
+            ) {
+                this.changeEnvironment(this.environments[0]);
             }
 
-            this.hideEnvironmentContextMenu()
+            this.hideEnvironmentContextMenu();
         },
         importEnvironment() {
-            const fileInput = document.createElement('input')
-            fileInput.type = 'file'
-            fileInput.accept = '.json'
-            fileInput.style.display = 'none'
-            fileInput.addEventListener('change', async() => {
-                const file = fileInput.files[0]
-                if(!file) {
-                    return
+            const fileInput = document.createElement("input");
+            fileInput.type = "file";
+            fileInput.accept = ".json";
+            fileInput.style.display = "none";
+            fileInput.addEventListener("change", async () => {
+                const file = fileInput.files[0];
+                if (!file) {
+                    return;
                 }
-                const fileContents = await file.text()
+                const fileContents = await file.text();
                 try {
-                    const parsedJSON = JSON.parse(fileContents)
-                    let environment = {}
+                    const parsedJSON = JSON.parse(fileContents);
+                    let environment = {};
 
-                    if('_postman_variable_scope' in parsedJSON && parsedJSON._postman_variable_scope === 'environment') {
-                        parsedJSON.values.forEach(variable => {
-                            if(variable.enabled) {
-                                environment[variable.key] = variable.value
+                    let secrets;
+
+                    if (
+                        "_postman_variable_scope" in parsedJSON &&
+                        (parsedJSON._postman_variable_scope === "environment" ||
+                            parsedJSON._postman_variable_scope === "globals")
+                    ) {
+                        const converted = convertPostmanVariableValues(
+                            parsedJSON.values,
+                        );
+                        environment = converted.environment;
+                        secrets = converted.secrets;
+
+                        if (parsedJSON._postman_variable_scope === "globals") {
+                            const workspace =
+                                this.workspace ??
+                                this.$store.state.activeWorkspace;
+                            if (workspace) {
+                                if (Object.keys(environment).length > 0) {
+                                    workspace.globals = {
+                                        ...(workspace.globals ?? {}),
+                                        ...environment,
+                                    };
+                                    this.$store.commit(
+                                        "updateWorkspaceGlobals",
+                                        {
+                                            workspaceId: workspace._id,
+                                            globals: workspace.globals,
+                                        },
+                                    );
+                                }
+                                if (Object.keys(secrets).length > 0) {
+                                    workspace.globalSecrets = {
+                                        ...(workspace.globalSecrets ?? {}),
+                                        ...secrets,
+                                    };
+                                    this.$store.commit(
+                                        "updateWorkspaceGlobalSecrets",
+                                        {
+                                            workspaceId: workspace._id,
+                                            globalSecrets:
+                                                workspace.globalSecrets,
+                                        },
+                                    );
+                                }
+                                this.$store.dispatch(
+                                    "reloadTabEnvironmentResolved",
+                                );
+                                this.$toast.success(
+                                    "Imported global variables",
+                                );
+                                if (this.workspace) {
+                                    this.editGlobals();
+                                }
                             }
-                        })
+                            return;
+                        }
                     } else {
-                        environment = parsedJSON.environment
+                        environment = parsedJSON.environment;
                     }
 
-                    this.addEnvironment(parsedJSON.name, environment)
-                } catch(e) {
-                    this.$toast.error('Invalid JSON file')
+                    this.addEnvironment(parsedJSON.name, environment, secrets);
+                } catch (e) {
+                    this.$toast.error("Invalid JSON file");
                 } finally {
-                    document.body.removeChild(fileInput)
+                    document.body.removeChild(fileInput);
                 }
-            })
-            document.body.appendChild(fileInput)
-            fileInput.click()
+            });
+            document.body.appendChild(fileInput);
+            fileInput.click();
         },
         exportEnvironment() {
-            const environment = this.environments.find(environment => environment.name === this.currentEnvironment)
-            const blob = new Blob([jsonStringify(environment)], { type: 'application/json' })
-            const url = URL.createObjectURL(blob)
-            const link = document.createElement('a')
-            link.href = url
-            link.download = `${environment.name}.restfox_environment.json`
-            link.click()
+            if (this.editingGlobals) {
+                const blob = new Blob(
+                    [
+                        jsonStringify({
+                            name: "Globals",
+                            environment: this.workspace.globals ?? {},
+                        }),
+                    ],
+                    { type: "application/json" },
+                );
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = "Globals.restfox_environment.json";
+                link.click();
+                return;
+            }
+
+            const environment = this.environments.find(
+                (environment) => environment.name === this.currentEnvironment,
+            );
+            const exported = { ...environment };
+            delete exported.secrets;
+            const blob = new Blob([jsonStringify(exported)], {
+                type: "application/json",
+            });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `${environment.name}.restfox_environment.json`;
+            link.click();
         },
         async loadEnvVariables() {
-            if(this.collectionItem) {
-                const request = JSON.parse(JSON.stringify(this.collectionItem))
-                const { environment } = await this.$store.dispatch('getEnvironmentForRequest', { collectionItem: request })
-                this.envVariables = environment
-            } else if(this.workspace) {
-                this.envVariables = {}
+            if (this.collectionItem) {
+                const request = JSON.parse(JSON.stringify(this.collectionItem));
+                const { environment } = await this.$store.dispatch(
+                    "getEnvironmentForRequest",
+                    { collectionItem: request },
+                );
+                this.envVariables = environment;
+            } else if (this.workspace) {
+                const secretPaths = new Set();
+                const current = (this.workspace.environments ?? []).find(
+                    (environment) =>
+                        environment.name ===
+                        (this.workspace.currentEnvironment ??
+                            constants.DEFAULT_ENVIRONMENT.name),
+                );
+                this.envVariables = {};
+                applyPublicLayer(
+                    this.envVariables,
+                    this.workspace.globals,
+                    secretPaths,
+                );
+                applySecretLayer(
+                    this.envVariables,
+                    this.workspace.globalSecrets,
+                    secretPaths,
+                );
+                applyPublicLayer(
+                    this.envVariables,
+                    current?.environment ?? this.workspace.environment,
+                    secretPaths,
+                );
+                applySecretLayer(
+                    this.envVariables,
+                    current?.secrets,
+                    secretPaths,
+                );
+                attachSecretPaths(this.envVariables, secretPaths);
 
-                if(this.workspace._type === 'file') {
-                    Object.keys(this.workspace.dotEnv).forEach(dotEnvKey => {
+                if (this.workspace._type === "file" && this.workspace.dotEnv) {
+                    Object.keys(this.workspace.dotEnv).forEach((dotEnvKey) => {
                         // this varName array join trick is needed as vite build changes all strings that match process.env to {}
-                        const varName = [
-                            'process',
-                            'env',
-                            dotEnvKey
-                        ].join('.')
-                        this.envVariables[varName] = this.workspace.dotEnv[dotEnvKey]
-                    })
+                        const varName = ["process", "env", dotEnvKey].join(".");
+                        this.envVariables[varName] =
+                            this.workspace.dotEnv[dotEnvKey];
+                    });
                 }
             }
         },
@@ -567,39 +1107,43 @@ export default {
             // close the modal if the parent is no more
             // doesn't matter for which collection item - it could be the parent, sibling or grandparent
             // too much work to figure out which one it is, so just close the modal
-            if(this.collectionItem && event.name === 'deleted') {
-                this.showModalComp = false
+            if (this.collectionItem && event.name === "deleted") {
+                this.showModalComp = false;
             }
         },
         handleEnvironmentEvent(event) {
             // close open environment modal if the environment is added, updated or deleted
             // doesn't matter for which collection item or if workspace
-            if(event.name === 'added' || event.name === 'updated' || event.name === 'deleted') {
-                this.showModalComp = false
+            if (
+                event.name === "added" ||
+                event.name === "updated" ||
+                event.name === "deleted"
+            ) {
+                this.showModalComp = false;
             }
         },
         handleDotEnvEvent(event) {
-            if(event === 'reloaded') {
-                this.loadEnvVariables()
+            if (event === "reloaded") {
+                this.loadEnvVariables();
             }
         },
         onTagClick(parsedFunc, updateFunc) {
-            this.editTagParsedFunc = parsedFunc
-            this.editTagUpdateFunc = updateFunc
-            this.editTagModalShow = true
+            this.editTagParsedFunc = parsedFunc;
+            this.editTagUpdateFunc = updateFunc;
+            this.editTagModalShow = true;
         },
     },
     created() {
-        emitter.on('collectionItem', this.handleCollectionItemEvent)
-        emitter.on('environment', this.handleEnvironmentEvent)
-        emitter.on('dotenv', this.handleDotEnvEvent)
+        emitter.on("collectionItem", this.handleCollectionItemEvent);
+        emitter.on("environment", this.handleEnvironmentEvent);
+        emitter.on("dotenv", this.handleDotEnvEvent);
     },
     beforeUnmount() {
-        emitter.off('collectionItem', this.handleCollectionItemEvent)
-        emitter.off('environment', this.handleEnvironmentEvent)
-        emitter.off('dotenv', this.handleDotEnvEvent)
-    }
-}
+        emitter.off("collectionItem", this.handleCollectionItemEvent);
+        emitter.off("environment", this.handleEnvironmentEvent);
+        emitter.off("dotenv", this.handleDotEnvEvent);
+    },
+};
 </script>
 
 <style scoped>
@@ -636,21 +1180,27 @@ export default {
 }
 
 .environment-sidebar-item:hover > .environment-sidebar-item-menu,
-.environment-sidebar-item > .environment-sidebar-item-menu.environment-sidebar-item-menu-disable-hide {
+.environment-sidebar-item
+    > .environment-sidebar-item-menu.environment-sidebar-item-menu-disable-hide {
     visibility: visible;
 }
 
-.environment-sidebar-item.environment-sidebar-item-selected > .environment-sidebar-item-menu svg {
+.environment-sidebar-item.environment-sidebar-item-selected
+    > .environment-sidebar-item-menu
+    svg {
     fill: white;
 }
 
 .environment-sidebar-item > .environment-sidebar-item-menu:hover,
-.environment-sidebar-item > .environment-sidebar-item-menu.environment-sidebar-item-menu-disable-hide {
+.environment-sidebar-item
+    > .environment-sidebar-item-menu.environment-sidebar-item-menu-disable-hide {
     background-color: rgba(240, 248, 255, 0.233);
 }
 
-.environment-sidebar-item:not(.environment-sidebar-item-selected) > .environment-sidebar-item-menu:hover,
-.environment-sidebar-item:not(.environment-sidebar-item-selected) > .environment-sidebar-item-menu.environment-sidebar-item-menu-disable-hide {
+.environment-sidebar-item:not(.environment-sidebar-item-selected)
+    > .environment-sidebar-item-menu:hover,
+.environment-sidebar-item:not(.environment-sidebar-item-selected)
+    > .environment-sidebar-item-menu.environment-sidebar-item-menu-disable-hide {
     background-color: rgb(108 194 197 / 20%);
 }
 
@@ -706,8 +1256,24 @@ export default {
 
 .env-editor-col {
     display: grid;
-    grid-template-rows: 1fr auto;
+    grid-template-rows: auto 1fr auto;
     overflow: auto;
+}
+
+.env-editor-tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.env-editor-tab-active {
+    box-shadow: inset 0 -2px 0 var(--text-color);
+}
+
+.environment-sidebar-divider {
+    height: 1px;
+    background: var(--modal-border-color);
+    margin: 0.4rem 0.3rem;
 }
 
 @media (max-width: 768px) {

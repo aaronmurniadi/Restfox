@@ -13,5 +13,6 @@ export default {
     FOLDERS: {
         ENVIRONMENTS: '_environments',
     },
-    GITIGNORE_CONTENT: '_collapsed\n*.responses.json\n*.messages.json\n.env\n',
+    GITIGNORE_CONTENT: '_collapsed\n*.responses.json\n*.messages.json\n.env\n*.secrets.json\n',
+    GLOBAL_SECRETS_FILE: '_globals.secrets.json',
 }

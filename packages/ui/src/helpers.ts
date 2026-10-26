@@ -35,6 +35,7 @@ import { version } from '../../electron/package.json'
 import constants from '@/constants'
 import { handleResponseTag } from '@/utils/tag'
 import { MASKED_PREVIEW, getPromptPreviewValue, handlePromptTag } from '@/utils/prompt-tag'
+import { isSecretPath, ownsSecretKey, secretPathsOf } from '@/utils/environment-secrets'
 import { handleTags } from '@/parsers/tag'
 import type { ParsedResult } from '@/parsers/tag'
 import { getSettingsFile, putSettingsFile, deleteSettingsFile } from '@/db'
@@ -90,7 +91,7 @@ export function flattenTree(array: CollectionItem[]) {
 export function substituteEnvironmentVariables(
     environment: any,
     string: string,
-    options: { tagTrigger?: boolean, noError?: boolean, resolvePromptTags?: boolean, workspaceId?: string } = {}
+    options: { tagTrigger?: boolean, noError?: boolean, resolvePromptTags?: boolean, workspaceId?: string, maskSecrets?: boolean } = {}
 ) {
     return substituteEnvironmentVariablesWith(environment, string, options)
 }
@@ -100,10 +101,10 @@ export function substituteEnvironmentVariables(
 async function substituteEnvironmentVariablesWith(
     environment: any,
     string: string,
-    options: { tagTrigger?: boolean, noError?: boolean, resolvePromptTags?: boolean, promptTagsOnly?: boolean, workspaceId?: string },
-    send?: { cacheId: string, handlePromptTag: (parsedTag: ParsedResult) => Promise<string>, throwIfStopped: () => void }
+    options: { tagTrigger?: boolean, noError?: boolean, resolvePromptTags?: boolean, promptTagsOnly?: boolean, workspaceId?: string, maskSecrets?: boolean },
+    send?: { cacheId: string, handlePromptTag: (parsedTag: ParsedResult) => Promise<string>, throwIfStopped: () => void, noteSecretValue?: (value: string) => void }
 ) {
-    const { tagTrigger = true, noError = false, resolvePromptTags = true, promptTagsOnly = false } = options
+    const { tagTrigger = true, noError = false, resolvePromptTags = true, promptTagsOnly = false, maskSecrets = false } = options
 
     if(promptTagsOnly) {
         environment = {}
@@ -112,12 +113,22 @@ async function substituteEnvironmentVariablesWith(
     let substitutedString = String(string)
 
     const possibleEnvironmentObjectPaths = getObjectPaths(environment)
+    const secretPaths = secretPathsOf(environment)
 
     possibleEnvironmentObjectPaths.forEach(objectPath => {
         let objectPathValue:any = getObjectPathValue(environment, objectPath)
 
         if (typeof objectPathValue === 'object') {
             objectPathValue = JSON.stringify(objectPathValue)
+        }
+
+        // a secret is sent as itself and hidden wherever the text is shown or saved, the same as a masked prompt
+        if(isSecretPath(objectPath, secretPaths)) {
+            if(maskSecrets) {
+                objectPathValue = MASKED_PREVIEW
+            } else if(objectPathValue !== undefined && objectPathValue !== null) {
+                send?.noteSecretValue?.(String(objectPathValue))
+            }
         }
 
         /**
@@ -331,9 +342,13 @@ export class SendResolver {
 
     private async substitute(environment: any, text: string, onMaskedPrompt: () => void, { hideMasked = false, promptTagsOnly = false } = {}) {
         this.throwIfStopped()
-        return substituteEnvironmentVariablesWith(environment, text, { promptTagsOnly, tagTrigger: this.tagTrigger, workspaceId: this.workspaceId }, {
+        return substituteEnvironmentVariablesWith(environment, text, { promptTagsOnly, tagTrigger: this.tagTrigger, workspaceId: this.workspaceId, maskSecrets: hideMasked }, {
             cacheId: this.cacheId,
             throwIfStopped: () => this.throwIfStopped(),
+            noteSecretValue: value => {
+                this.maskedValues.add(value)
+                onMaskedPrompt()
+            },
             handlePromptTag: async parsedTag => {
                 this.throwIfStopped()
                 let masked = false
@@ -2336,11 +2351,12 @@ export function prepareCollectionForExport(collectionItems: CollectionItem[], pl
 }
 
 // plugins are the workspace-level scripts, the scripts of an item travel on the item itself
-export function exportRestfoxCollection(collection: CollectionItem[], environments = undefined, plugins: Plugin[] | undefined = undefined) {
+export function exportRestfoxCollection(collection: CollectionItem[], environments = undefined, plugins: Plugin[] | undefined = undefined, globals: Record<string, any> | undefined = undefined) {
     downloadObjectAsJSON(`Restfox_${todayISODate()}.json`, {
         exportedFrom: 'Restfox-1.0.0',
         collection,
         environments,
+        ...(globals && Object.keys(globals).length > 0 ? { globals } : {}),
         plugins,
     })
 }
@@ -2542,13 +2558,34 @@ export function setEnvironmentVariable(store: ActionContext<State, State>, objec
                 color: constants.DEFAULT_ENVIRONMENT.color
             }
         ]
+        const currentEnvironment = environmentsToModify.find(environmentItem => environmentItem.name === (store.state.activeWorkspace!.currentEnvironment ?? 'Default'))
+
+        if(currentEnvironment && ownsSecretKey(currentEnvironment.secrets, objectPath)) {
+            setObjectPathValue(currentEnvironment.secrets, objectPath, value)
+            store.commit('updateWorkspaceEnvironments', {
+                workspaceId: store.state.activeWorkspace._id,
+                environments: environmentsToModify
+            })
+            store.dispatch('reloadTabEnvironmentResolved')
+            return
+        }
+
+        if(ownsSecretKey(store.state.activeWorkspace.globalSecrets, objectPath)) {
+            setObjectPathValue(store.state.activeWorkspace.globalSecrets, objectPath, value)
+            store.commit('updateWorkspaceGlobalSecrets', {
+                workspaceId: store.state.activeWorkspace._id,
+                globalSecrets: store.state.activeWorkspace.globalSecrets
+            })
+            store.dispatch('reloadTabEnvironmentResolved')
+            return
+        }
+
         setObjectPathValue(environmentToModify, objectPath, value)
         store.state.activeWorkspace.environment = environmentToModify
         store.commit('updateWorkspaceEnvironment',  {
             workspaceId: store.state.activeWorkspace._id,
             environment: environmentToModify
         })
-        const currentEnvironment = environmentsToModify.find(environmentItem => environmentItem.name === (store.state.activeWorkspace!.currentEnvironment ?? 'Default'))
         currentEnvironment.environment = environmentToModify
         store.commit('updateWorkspaceEnvironments',  {
             workspaceId: store.state.activeWorkspace._id,
@@ -2584,6 +2621,21 @@ export function setParentEnvironmentVariable(store: ActionContext<State, State>,
             // If folder not found, fall back to global environment
             setEnvironmentVariable(store, objectPath, value)
             return
+        }
+
+        if(targetFolder.environments) {
+            const currentEnvironmentName = targetFolder.currentEnvironment ?? constants.DEFAULT_ENVIRONMENT.name
+            const currentEnvironment = targetFolder.environments.find((env: any) => env.name === currentEnvironmentName) as any
+
+            if(currentEnvironment && ownsSecretKey(currentEnvironment.secrets, objectPath)) {
+                setObjectPathValue(currentEnvironment.secrets, objectPath, value)
+                store.commit('updateCollectionItemEnvironments', {
+                    collectionId: targetFolderId,
+                    environments: targetFolder.environments
+                })
+                store.dispatch('reloadTabEnvironmentResolved')
+                return
+            }
         }
 
         const folderEnvironment = targetFolder.environment ?? {}

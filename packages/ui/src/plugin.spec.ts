@@ -4,6 +4,7 @@ import { test, expect } from 'vitest'
 import { createRequestContextForPlugin, createResponseContextForPlugin, usePlugin } from './plugin'
 import { CollectionItem, RequestFinalResponse, RequestParam } from './global'
 import { SendResolver } from './helpers'
+import { attachSecretPaths } from './utils/environment-secrets'
 
 async function createExpose({ parameters = [] }: { parameters?: RequestParam[] } = {}) {
     const request: CollectionItem = {
@@ -207,6 +208,16 @@ test('rf.getEnvVar reads a prompt tag as its remembered value or its default, it
     const { expose } = await createRequestContextForPlugin(new SendResolver('w'), request, environment, () => undefined, [], null)
     expect(expose.rf.getEnvVar('PASSWORD')).toBe('fallback')
     expect(expose.rf.getEnvVar('OTHER')).toBe('plain')
+})
+
+test('rf.getEnvVar of a secret marks the send, so history can leave out anything the script may have written', async() => {
+    const request: CollectionItem = { _id: 'test', _type: 'request', parentId: 'test', workspaceId: 'test', name: 'test' }
+    const environment = { token: 'super-secret' }
+    attachSecretPaths(environment, new Set(['token']))
+    const send = new SendResolver('w')
+    const { expose } = await createRequestContextForPlugin(send, request, environment, () => undefined, [], null)
+    expect(expose.rf.getEnvVar('token')).toBe('super-secret')
+    expect(send.maskedPromptOmitted).toEqual({ reason: 'script-read' })
 })
 
 test('rf.getEnvVar returns text that only looks like a tag as written, as before', async() => {

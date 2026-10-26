@@ -97,7 +97,7 @@ import {
     fetchWrapper,
     getSavedRequestTimeout
 } from '@/helpers'
-import { convertPostmanExportToRestfoxCollection, isPostmanDataDump, isPostmanVariablesFile, mergePostmanGlobals } from '@/parsers/postman'
+import { convertPostmanExportToRestfoxCollection, isPostmanDataDump, isPostmanVariablesFile } from '@/parsers/postman'
 import { convertInsomniaGrpcMessage, isGrpcAvailable } from '@/utils/grpc-transport'
 import yaml from 'js-yaml'
 import Modal from '@/components/Modal.vue'
@@ -321,6 +321,22 @@ export default {
                 environment: this.activeWorkspace.environment,
             })
         },
+        importGlobals(globals) {
+            this.activeWorkspace.globals = { ...(this.activeWorkspace.globals ?? {}), ...globals }
+            this.$store.commit('updateWorkspaceGlobals', {
+                workspaceId: this.activeWorkspace._id,
+                globals: this.activeWorkspace.globals,
+            })
+            this.$store.dispatch('reloadTabEnvironmentResolved')
+        },
+        importGlobalSecrets(globalSecrets) {
+            this.activeWorkspace.globalSecrets = { ...(this.activeWorkspace.globalSecrets ?? {}), ...globalSecrets }
+            this.$store.commit('updateWorkspaceGlobalSecrets', {
+                workspaceId: this.activeWorkspace._id,
+                globalSecrets: this.activeWorkspace.globalSecrets,
+            })
+            this.$store.dispatch('reloadTabEnvironmentResolved')
+        },
 
         async importFile() {
             this.importing = true
@@ -334,15 +350,17 @@ export default {
                 // Postman globals from one file apply to the environments from another file of the same import
                 let postmanEnvironments = []
                 let postmanGlobals = null
+                let postmanGlobalSecrets = null
 
                 if(this.importFrom === 'Postman URL') {
                     json = await this.fetchUrl(this.urlToImport, 'json')
 
-                    const { collection, plugins: newPlugins, environments, globals } = await convertPostmanExportToRestfoxCollection(json, false, this.activeWorkspace._id)
+                    const { collection, plugins: newPlugins, environments, globals, globalSecrets } = await convertPostmanExportToRestfoxCollection(json, false, this.activeWorkspace._id)
 
                     collectionTree = collection
                     postmanEnvironments = environments
                     postmanGlobals = globals
+                    postmanGlobalSecrets = globalSecrets
 
                     if(newPlugins.length > 0) {
                         plugins = plugins.concat(newPlugins)
@@ -368,13 +386,17 @@ export default {
                                 json = await fileToJSON(fileToImport)
                             }
 
-                            const { collection, plugins: newPlugins, environments, globals } = await convertPostmanExportToRestfoxCollection(json, isZip, this.activeWorkspace._id)
+                            const { collection, plugins: newPlugins, environments, globals, globalSecrets } = await convertPostmanExportToRestfoxCollection(json, isZip, this.activeWorkspace._id)
 
                             collectionTree = collectionTree.concat(collection)
                             postmanEnvironments = postmanEnvironments.concat(environments)
 
                             if(globals !== null) {
                                 postmanGlobals = { ...postmanGlobals, ...globals }
+                            }
+
+                            if(globalSecrets !== null) {
+                                postmanGlobalSecrets = { ...postmanGlobalSecrets, ...globalSecrets }
                             }
 
                             if(newPlugins.length > 0) {
@@ -393,6 +415,10 @@ export default {
                                 this.importEnvironments(json.environments)
                             }
 
+                            if(json.globals && typeof json.globals === 'object') {
+                                this.importGlobals(json.globals)
+                            }
+
                             if(newPlugins.length > 0) {
                                 plugins = plugins.concat(newPlugins)
                             }
@@ -405,10 +431,16 @@ export default {
                     }
                 }
 
-                const postmanEnvironmentsWithGlobals = mergePostmanGlobals(postmanEnvironments, postmanGlobals)
+                if(postmanGlobals && Object.keys(postmanGlobals).length > 0) {
+                    this.importGlobals(postmanGlobals)
+                }
 
-                if(postmanEnvironmentsWithGlobals.length > 0) {
-                    this.importEnvironments(postmanEnvironmentsWithGlobals)
+                if(postmanGlobalSecrets && Object.keys(postmanGlobalSecrets).length > 0) {
+                    this.importGlobalSecrets(postmanGlobalSecrets)
+                }
+
+                if(postmanEnvironments.length > 0) {
+                    this.importEnvironments(postmanEnvironments)
                 }
 
                 if(this.selectedRequestGroupId) {

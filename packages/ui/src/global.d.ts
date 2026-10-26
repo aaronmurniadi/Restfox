@@ -437,6 +437,10 @@ export interface Workspace {
     environment?: any
     environments?: any[]
     currentEnvironment?: string
+    // available in every request in the workspace, underneath the selected environment and folder environments
+    globals?: Record<string, any>
+    // secret values for the globals, kept apart so an export of the workspace can leave them out
+    globalSecrets?: Record<string, any>
     dotEnv?: Record<string, string> // only available in File Workspace, not persisted to indexedDB
     activeTabId?: string
     tabIds?: string[]
@@ -452,6 +456,8 @@ export interface FileWorkspace {
     environment?: any
     environments?: any[]
     currentEnvironment?: string
+    globals?: Record<string, any>
+    globalSecrets?: Record<string, any>
     dotEnv?: Record<string, string>
 }
 

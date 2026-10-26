@@ -220,7 +220,7 @@ async function asksPrompt(item: CollectionItem, environment: any, parentHeaders:
 
 // The server address as typed, with variables resolved as a preview, never asking a prompt
 export async function previewGrpcTarget(item: CollectionItem, environment: any) {
-    const urlResolved = await substituteEnvironmentVariables(environment ?? {}, item.url ?? '', { tagTrigger: false, noError: true, workspaceId: item.workspaceId })
+    const urlResolved = await substituteEnvironmentVariables(environment ?? {}, item.url ?? '', { tagTrigger: false, noError: true, maskSecrets: true, workspaceId: item.workspaceId })
     return parseGrpcTarget(urlResolved)
 }
 

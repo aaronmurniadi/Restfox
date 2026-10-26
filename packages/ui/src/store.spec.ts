@@ -47,6 +47,7 @@ import { createPlugin, createResponse, deleteCollectionsByIds, deletePlugin, del
 import type { CollectionItem, Plugin, ResponseHead, ResponseProgress, ResponseProgressHandler, Workspace } from './global'
 import { store } from './store'
 import { INHERITED_AUTHENTICATION_TYPE, handleRequest } from './helpers'
+import { isSecretPath, secretPathsOf } from './utils/environment-secrets'
 import { type GrpcLiveCall, getGrpcItemKey, grpcCalls, resetGrpcCalls, startGrpcCallForItem } from './utils/grpc-calls'
 
 function scriptPlugin(id: string, code: { pre_request: string, post_request: string }): Plugin {
@@ -191,6 +192,59 @@ describe('getEnvironmentForRequest with a prompt tag', () => {
         const { environment } = await store.dispatch('getEnvironmentForRequest', { collectionItem: store.state.collection[1] })
         expect(environment).toMatchObject({ PASSWORD: tag, WORKSPACE_PASSWORD: tag, COPY: tag })
         expect(createPrompt).not.toHaveBeenCalled()
+    })
+})
+
+describe('getEnvironmentForRequest with globals and secrets', () => {
+    test('a global is available, the environment overrides it, and a secret wins over a plain value of the same name', async() => {
+        store.state.activeWorkspace = {
+            _id: 'workspace-id',
+            _type: 'workspace',
+            name: 'Workspace',
+            globals: { host: 'https://global.example', token: 'global-token' },
+            globalSecrets: { apiKey: 'global-secret' },
+            environment: { host: 'https://env.example', token: 'env-token' },
+            currentEnvironment: 'Default',
+            environments: [{ name: 'Default', environment: { host: 'https://env.example', token: 'env-token' }, secrets: { token: 'env-secret' } }],
+        } as unknown as Workspace
+        store.state.collection = [
+            { _id: 'folder', _type: 'request_group', name: 'Folder', parentId: null, workspaceId: 'workspace-id', environment: { folder: 'yes' }, currentEnvironment: 'Default', environments: [{ name: 'Default', environment: { folder: 'yes' }, secrets: { folderKey: 'folder-secret' } }] },
+            { _id: 'request-id', _type: 'request', name: 'Request', parentId: 'folder', workspaceId: 'workspace-id' },
+        ] as CollectionItem[]
+
+        const { environment } = await store.dispatch('getEnvironmentForRequest', { collectionItem: store.state.collection[1] })
+
+        expect(environment).toMatchObject({
+            host: 'https://env.example',
+            token: 'env-secret',
+            apiKey: 'global-secret',
+            folder: 'yes',
+            folderKey: 'folder-secret',
+        })
+        expect(isSecretPath('token', secretPathsOf(environment))).toBe(true)
+        expect(isSecretPath('apiKey', secretPathsOf(environment))).toBe(true)
+        expect(isSecretPath('folderKey', secretPathsOf(environment))).toBe(true)
+        expect(isSecretPath('host', secretPathsOf(environment))).toBe(false)
+    })
+
+    test('a folder value overrides a global secret of the same name', async() => {
+        store.state.activeWorkspace = {
+            _id: 'workspace-id',
+            _type: 'workspace',
+            name: 'Workspace',
+            globals: {},
+            globalSecrets: { token: 'secret' },
+            environment: {},
+            dotEnv: {},
+        } as unknown as Workspace
+        store.state.collection = [
+            { _id: 'folder', _type: 'request_group', name: 'Folder', parentId: null, workspaceId: 'workspace-id', environment: { token: 'folder-public' } },
+            { _id: 'request-id', _type: 'request', name: 'Request', parentId: 'folder', workspaceId: 'workspace-id' },
+        ] as CollectionItem[]
+
+        const { environment } = await store.dispatch('getEnvironmentForRequest', { collectionItem: store.state.collection[1] })
+        expect(environment.token).toBe('folder-public')
+        expect(isSecretPath('token', secretPathsOf(environment))).toBe(false)
     })
 })
 

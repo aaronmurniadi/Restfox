@@ -13,6 +13,7 @@ import constants from '@/constants'
 export interface PostmanEnvironment {
     name: string
     environment: Record<string, unknown>
+    secrets?: Record<string, unknown>
 }
 
 function isPostmanCollectionV2(json: any) {
@@ -28,38 +29,56 @@ export function isPostmanDataDump(json: any) {
     return json?.version === 1 && Array.isArray(json?.collections)
 }
 
-// a disabled variable is not used by Postman, so it is left out
-function convertPostmanVariables(values: any): Record<string, unknown> {
-    const variables: Record<string, unknown> = {}
+// a disabled variable is not used by Postman, so it is left out. A secret stays out of the plain variables
+export function convertPostmanVariableValues(values: any): { environment: Record<string, unknown>, secrets: Record<string, unknown> } {
+    const environment: Record<string, unknown> = {}
+    const secrets: Record<string, unknown> = {}
 
     if(Array.isArray(values)) {
         values.forEach((variable: any) => {
             if(variable?.key && variable.enabled !== false) {
-                variables[variable.key] = variable.value ?? ''
+                const target = variable.type === 'secret' ? secrets : environment
+                target[variable.key] = variable.value ?? ''
             }
         })
     }
 
-    return variables
+    return { environment, secrets }
 }
 
-// environments and globals come back apart, as globals from one file apply to the environments from another file of the
-// same import
+// environments and globals come back apart. Globals apply underneath every environment, and a secret stays in globalSecrets
 export async function convertPostmanExportToRestfoxCollection(json: any, isZip: boolean, workspaceId: string): Promise<{
     collection: CollectionItem[],
     plugins: Plugin[],
     environments: PostmanEnvironment[],
     globals: Record<string, unknown> | null
+    globalSecrets: Record<string, unknown> | null
 }> {
     const collections: any[] = []
     const environments: PostmanEnvironment[] = []
     let globals: Record<string, unknown> | null = null
+    let globalSecrets: Record<string, unknown> | null = null
+
+    const addGlobals = (values: any) => {
+        const converted = convertPostmanVariableValues(values)
+        if(Object.keys(converted.environment).length > 0) {
+            globals = { ...(globals ?? {}), ...converted.environment }
+        }
+        if(Object.keys(converted.secrets).length > 0) {
+            globalSecrets = { ...(globalSecrets ?? {}), ...converted.secrets }
+        }
+    }
 
     const addVariablesFile = (variablesFile: any) => {
         if(variablesFile._postman_variable_scope === 'globals') {
-            globals = { ...globals, ...convertPostmanVariables(variablesFile.values) }
+            addGlobals(variablesFile.values)
         } else {
-            environments.push({ name: variablesFile.name, environment: convertPostmanVariables(variablesFile.values) })
+            const converted = convertPostmanVariableValues(variablesFile.values)
+            const environment: PostmanEnvironment = { name: variablesFile.name, environment: converted.environment }
+            if(Object.keys(converted.secrets).length > 0) {
+                environment.secrets = converted.secrets
+            }
+            environments.push(environment)
         }
     }
 
@@ -88,16 +107,16 @@ export async function convertPostmanExportToRestfoxCollection(json: any, isZip: 
             }
         }
 
-        return { ...importPostmanV2(collections, workspaceId), environments, globals }
+        return { ...importPostmanV2(collections, workspaceId), environments, globals, globalSecrets }
     }
 
     if(isPostmanCollectionV2(json)) {
-        return { ...importPostmanV2([json], workspaceId), environments, globals }
+        return { ...importPostmanV2([json], workspaceId), environments, globals, globalSecrets }
     }
 
     if(isPostmanVariablesFile(json)) {
         addVariablesFile(json)
-        return { collection: [], plugins: [], environments, globals }
+        return { collection: [], plugins: [], environments, globals, globalSecrets }
     }
 
     // a newer dump keeps each workspace's globals as an environment named "<workspace> - globals"
@@ -105,11 +124,11 @@ export async function convertPostmanExportToRestfoxCollection(json: any, isZip: 
         (json.environments ?? []).forEach((environment: any) => addVariablesFile({ ...environment, _postman_variable_scope: / - globals$/.test(environment.name ?? '') ? 'globals' : 'environment' }))
 
         if(Array.isArray(json.globals) && json.globals.length > 0) {
-            globals = { ...(globals ?? {}), ...convertPostmanVariables(json.globals) }
+            addGlobals(json.globals)
         }
     }
 
-    return { ...importPostmanV1(json.collections, workspaceId), environments, globals }
+    return { ...importPostmanV1(json.collections, workspaceId), environments, globals, globalSecrets }
 }
 
 // Postman resolves a variable from the environment before the globals, so an environment keeps its own value, and

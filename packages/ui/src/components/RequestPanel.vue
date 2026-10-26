@@ -1117,12 +1117,12 @@ export default {
 
             let url = this.activeTab.url ?? ''
 
-            url = await substituteEnvironmentVariables(this.collectionItemEnvironmentResolved, url, { tagTrigger: false, noError: true, workspaceId: this.activeTab.workspaceId })
+            url = await substituteEnvironmentVariables(this.collectionItemEnvironmentResolved, url, { tagTrigger: false, noError: true, maskSecrets: true, workspaceId: this.activeTab.workspaceId })
 
             if (this.activeTab.pathParameters) {
                 for (const pathParameter of this.activeTab.pathParameters.filter(item => !item.disabled)) {
-                    const paramName = await substituteEnvironmentVariables(this.collectionItemEnvironmentResolved, pathParameter.name, { tagTrigger: false, noError: true, workspaceId: this.activeTab.workspaceId })
-                    const paramValue = await substituteEnvironmentVariables(this.collectionItemEnvironmentResolved, pathParameter.value, { tagTrigger: false, noError: true, workspaceId: this.activeTab.workspaceId })
+                    const paramName = await substituteEnvironmentVariables(this.collectionItemEnvironmentResolved, pathParameter.name, { tagTrigger: false, noError: true, maskSecrets: true, workspaceId: this.activeTab.workspaceId })
+                    const paramValue = await substituteEnvironmentVariables(this.collectionItemEnvironmentResolved, pathParameter.value, { tagTrigger: false, noError: true, maskSecrets: true, workspaceId: this.activeTab.workspaceId })
 
                     url = url.replaceAll(`:${paramName}`, paramValue)
                         .replaceAll(`{${paramName}}`, paramValue)

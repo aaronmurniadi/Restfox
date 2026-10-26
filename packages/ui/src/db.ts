@@ -171,6 +171,8 @@ export async function updateWorkspace(workspaceId: string, updatedFields: Partia
             delete updatedFields.currentEnvironment
             delete updatedFields.environment
             delete updatedFields.environments
+            delete updatedFields.globals
+            delete updatedFields.globalSecrets
         }
     }
 

@@ -198,7 +198,7 @@ export function createDbHelpers(fileUtils, deserializeResponseBuffer) {
         const envFiles = await fileUtils.readdirIgnoreError(envsDirPath)
 
         for (const fileName of envFiles) {
-            if (fileName.endsWith('.meta.json')) {
+            if (fileName.endsWith('.meta.json') || fileName.endsWith('.secrets.json')) {
                 continue
             }
 
@@ -211,9 +211,15 @@ export function createDbHelpers(fileUtils, deserializeResponseBuffer) {
                     envMeta = JSON.parse(await fs.readFile(path.join(envsDirPath, metaFileName), 'utf8'))
                 } catch {}
 
+                let secrets
+                try {
+                    secrets = JSON.parse(await fs.readFile(path.join(envsDirPath, fileName.replace('.json', '.secrets.json')), 'utf8'))
+                } catch {}
+
                 environments.push({
                     name: fileUtils.decodeFilename(fileName.replace('.json', '')),
                     environment: envData,
+                    ...(secrets && typeof secrets === 'object' ? { secrets } : {}),
                     ...envMeta,
                 })
             } catch (err) {
@@ -266,7 +272,7 @@ export function createDbHelpers(fileUtils, deserializeResponseBuffer) {
         const environmentNames = environments.map((env) => `${fileUtils.encodeFilename(env.name)}.json`)
 
         for (const existingEnvironment of existingEnvironments) {
-            if (existingEnvironment.endsWith('.meta.json')) {
+            if (existingEnvironment.endsWith('.meta.json') || existingEnvironment.endsWith('.secrets.json')) {
                 continue
             }
 
@@ -281,6 +287,11 @@ export function createDbHelpers(fileUtils, deserializeResponseBuffer) {
                     if (metaExists) {
                         await fileUtils.deleteFileOrFolder(path.join(envsDirPath, metaFileName), fsLog, 'Deleting environment meta')
                     }
+
+                    const secretsFileName = existingEnvironment.replace('.json', '.secrets.json')
+                    if (existingEnvironments.includes(secretsFileName)) {
+                        await fileUtils.deleteFileOrFolder(path.join(envsDirPath, secretsFileName), fsLog, 'Deleting environment secrets')
+                    }
                 } catch (err) {
                     console.error(`Error removing environment file: ${existingEnvironment}`, err)
                 }
@@ -291,8 +302,21 @@ export function createDbHelpers(fileUtils, deserializeResponseBuffer) {
             const envName = fileUtils.encodeFilename(env.name)
             try {
                 await fileUtils.writeFileJson(path.join(envsDirPath, `${envName}.json`), env.environment, fsLog, 'Saving environment')
+                const meta = {}
                 if (env.color) {
-                    await fileUtils.writeFileJson(path.join(envsDirPath, `${envName}.meta.json`), { color: env.color }, fsLog, 'Saving environment meta')
+                    meta.color = env.color
+                }
+                if (Object.keys(meta).length > 0) {
+                    await fileUtils.writeFileJson(path.join(envsDirPath, `${envName}.meta.json`), meta, fsLog, 'Saving environment meta')
+                }
+
+                const secretsFileName = `${envName}.secrets.json`
+                const secretsPath = path.join(envsDirPath, secretsFileName)
+                if (env.secrets && Object.keys(env.secrets).length > 0) {
+                    await fileUtils.writeFileJson(secretsPath, env.secrets, fsLog, 'Saving environment secrets')
+                    await ensureSecretsGitignore(envsDirPath)
+                } else if (existingEnvironments.includes(secretsFileName)) {
+                    await fileUtils.deleteFileOrFolder(secretsPath, fsLog, 'Deleting environment secrets')
                 }
             } catch (err) {
                 console.error(`Error writing environment file: ${envName}.json`, err)
@@ -379,12 +403,69 @@ export function createDbHelpers(fileUtils, deserializeResponseBuffer) {
         }
     }
 
+    // secret files are left out of git. The ignore rule is added to an existing workspace the first time a secret is saved
+    async function ensureSecretsGitignore(envsDirPath) {
+        let dir = envsDirPath
+
+        for (let i = 0; i < 30; i++) {
+            const parent = path.dirname(dir)
+            if (parent === dir) {
+                return
+            }
+            dir = parent
+
+            if (await fileUtils.pathExists(path.join(dir, constants.FILES.WORKSPACE_CONFIG))) {
+                const gitignorePath = path.join(dir, '.gitignore')
+                let content = ''
+                try {
+                    content = await fs.readFile(gitignorePath, 'utf8')
+                } catch {
+                    content = constants.GITIGNORE_CONTENT
+                }
+                if (!content.includes('*.secrets.json')) {
+                    const separator = content.length > 0 && !content.endsWith('\n') ? '\n' : ''
+                    await fs.writeFile(gitignorePath, `${content}${separator}*.secrets.json\n`)
+                }
+                return
+            }
+        }
+    }
+
+    async function readGlobalSecrets(workspacePath) {
+        try {
+            return JSON.parse(await fs.readFile(path.join(workspacePath, constants.FOLDERS.ENVIRONMENTS, constants.GLOBAL_SECRETS_FILE), 'utf8'))
+        } catch {
+            return {}
+        }
+    }
+
+    async function saveGlobalSecrets(fsLog, workspacePath, globalSecrets) {
+        const envsDirPath = path.join(workspacePath, constants.FOLDERS.ENVIRONMENTS)
+        const secretsPath = path.join(envsDirPath, constants.GLOBAL_SECRETS_FILE)
+
+        if (globalSecrets && Object.keys(globalSecrets).length > 0) {
+            try {
+                await fileUtils.mkdir(envsDirPath, fsLog, 'Create environments directory')
+            } catch (err) {
+                if (err.code !== 'EEXIST') {
+                    throw err
+                }
+            }
+            await fileUtils.writeFileJson(secretsPath, globalSecrets, fsLog, 'Saving global secrets')
+            await ensureSecretsGitignore(envsDirPath)
+        } else if (await fileUtils.pathExists(secretsPath)) {
+            await fileUtils.deleteFileOrFolder(secretsPath, fsLog, 'Deleting global secrets')
+        }
+    }
+
     return {
         getCollectionItem,
         getCollection,
         ensureRestfoxCollection,
         getEnvironments,
         saveEnvironments,
+        readGlobalSecrets,
+        saveGlobalSecrets,
         serializeRequestFiles,
         deserializeRequestFiles,
         serializeRequestResponseFiles,

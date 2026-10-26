@@ -257,10 +257,16 @@ describe('Postman environments and globals', () => {
         expect(result.environments).toEqual([{ name: 'Old', environment: { host: 'h' } }])
     })
 
-    test('a globals file imports as globals', async() => {
+    test('a globals file imports as globals, and a secret stays out of the plain globals', async() => {
         const result = await convertPostmanExportToRestfoxCollection(globalsFile, false, 'w')
-        expect(result.globals).toEqual({ baseUrl: 'https://global.example', apiKey: 'k' })
+        expect(result.globals).toEqual({ baseUrl: 'https://global.example' })
+        expect(result.globalSecrets).toEqual({ apiKey: 'k' })
         expect(result.environments).toEqual([])
+    })
+
+    test('a secret variable in an environment is kept as a secret', async() => {
+        const result = await convertPostmanExportToRestfoxCollection({ id: 'e3', name: 'Local', values: [{ key: 'host', value: 'h', enabled: true }, { key: 'token', value: 's', type: 'secret', enabled: true }], _postman_variable_scope: 'environment' }, false, 'w')
+        expect(result.environments).toEqual([{ name: 'Local', environment: { host: 'h' }, secrets: { token: 's' } }])
     })
 
     test('globals go into every environment and an environment keeps its own value, without environments they become their own', () => {
