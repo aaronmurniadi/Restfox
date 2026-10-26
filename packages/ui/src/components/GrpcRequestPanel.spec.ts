@@ -102,6 +102,9 @@ async function mountPanel(fields: Partial<CollectionItem> = {}, siblings: Collec
         if(action === 'saveResponse') {
             return
         }
+        if(action === 'reloadTabEnvironmentResolved') {
+            return
+        }
         throw new Error(`unexpected action ${action}`)
     })
     const element = ownerDocument.createElement('div')
@@ -109,7 +112,7 @@ async function mountPanel(fields: Partial<CollectionItem> = {}, siblings: Collec
     const panelApp = createApp({
         render: () => h('div', { class: 'request-panel' }, [h(GrpcRequestPanel, { activeTab: item })]),
     })
-    panelApp.provide('store', { state, dispatch, commit: vi.fn() })
+    panelApp.provide('store', { state, dispatch, commit: vi.fn(), getters: { enabledPlugins: [] } })
     panelApp.provide('$toast', { error: vi.fn(), success: vi.fn() })
     panelApp.mount(element)
     // the methods load when the item opens

@@ -149,9 +149,7 @@
                         running &&
                         isClientStreaming(kind)
                     "
-                >
-                    Message not sent: {{ call.sendError }}
-                </div>
+                >Message not sent: {{ call.sendError }}</div>
                 <div
                     class="grpc-request-panel-send-error"
                     v-if="
@@ -160,9 +158,7 @@
                         running &&
                         isClientStreaming(kind)
                     "
-                >
-                    Stream not ended: {{ call.endError }}
-                </div>
+                >Stream not ended: {{ call.endError }}</div>
                 <div class="request-panel-body-footer">
                     <button type="button" class="button" @click="beautifyJSON">
                         Beautify JSON
@@ -286,16 +282,12 @@
                                 type="button"
                                 class="button"
                                 @click="pickProtoFiles(false)"
-                            >
-                                Add files
-                            </button>
+                            >Add files</button>
                             <button
                                 type="button"
                                 class="button"
                                 @click="pickProtoFiles(true)"
-                            >
-                                Add folder
-                            </button>
+                            >Add folder</button>
                         </div>
                     </div>
                     <template v-else>
@@ -328,16 +320,12 @@
                                 type="button"
                                 class="button"
                                 @click="pickProtoFiles(false)"
-                            >
-                                Add files
-                            </button>
+                            >Add files</button>
                             <button
                                 type="button"
                                 class="button"
                                 @click="pickProtoFiles(true)"
-                            >
-                                Add folder
-                            </button>
+                            >Add folder</button>
                         </div>
                     </template>
                 </template>
@@ -380,9 +368,7 @@
                                 : undefined
                         "
                         @click="loadSchema(true)"
-                    >
-                        Reload
-                    </button>
+                    >Reload</button>
                 </div>
             </div>
             <RequestPanelDocs
@@ -1013,7 +999,7 @@ async function sendMessage() {
             workspace,
             store.state.collection,
             props.activeTab,
-            store.getters.enabledPlugins ?? [],
+            store.getters?.enabledPlugins ?? [],
             [message.value],
             () => {
                 store.dispatch("reloadTabEnvironmentResolved");

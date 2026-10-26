@@ -524,7 +524,7 @@ async function connect(client: Client) {
             activeWorkspace.value,
             store.state.collection,
             activeTab.value,
-            store.getters.enabledPlugins ?? [],
+            store.getters?.enabledPlugins ?? [],
             [client.url],
             () => {
                 store.dispatch("reloadTabEnvironmentResolved");
@@ -890,7 +890,7 @@ async function sendMessage(client: Client) {
             activeWorkspace.value,
             store.state.collection,
             activeTab.value,
-            store.getters.enabledPlugins ?? [],
+            store.getters?.enabledPlugins ?? [],
             [client.message, client.event ?? ""],
             () => {
                 store.dispatch("reloadTabEnvironmentResolved");
