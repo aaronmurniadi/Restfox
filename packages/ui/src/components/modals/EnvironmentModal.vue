@@ -1,7 +1,7 @@
 <template>
     <form @submit.prevent="done" v-if="showModalComp">
         <modal
-            :title="`Environment (JSON Format) — ${collectionItem ? collectionItem.name : workspace.name}`"
+            :title="`Environment — ${collectionItem ? collectionItem.name : workspace.name}`"
             v-model="showModalComp"
             height="70vh"
             width="55rem"
@@ -150,15 +150,87 @@
                             Secrets
                         </button>
                     </div>
-                    <CodeMirrorEditor
-                        v-model="environment"
-                        lang="json"
-                        :env-variables="envVariables"
-                        :autocompletions="tagAutocompletions"
-                        @tagClick="onTagClick"
-                        style="overflow: auto"
-                        :key="editorKey"
-                    ></CodeMirrorEditor>
+                    <div class="env-kv-editor" @keydown.enter.prevent>
+                        <table class="env-kv-table">
+                            <tr>
+                                <th>Key</th>
+                                <th>Value</th>
+                                <th></th>
+                            </tr>
+                            <tr v-for="(row, index) in rows" :key="row.id">
+                                <td>
+                                    <CodeMirrorSingleLine
+                                        v-model="row.key"
+                                        placeholder="key"
+                                        :input-text-compatible="true"
+                                        @update:modelValue="
+                                            onEnvironmentRowInput
+                                        "
+                                    />
+                                </td>
+                                <td>
+                                    <div class="env-kv-value">
+                                        <input
+                                            v-if="
+                                                editorMode === 'secrets' &&
+                                                !row.revealed
+                                            "
+                                            type="password"
+                                            class="env-kv-secret"
+                                            v-model="row.value"
+                                            placeholder="value"
+                                            spellcheck="false"
+                                            autocomplete="new-password"
+                                            @input="onEnvironmentRowInput"
+                                        />
+                                        <CodeMirrorSingleLine
+                                            v-else
+                                            v-model="row.value"
+                                            placeholder="value"
+                                            :env-variables="envVariables"
+                                            :autocompletions="
+                                                tagAutocompletions
+                                            "
+                                            :input-text-compatible="true"
+                                            @tagClick="onTagClick"
+                                            @update:modelValue="
+                                                onEnvironmentRowInput
+                                            "
+                                        />
+                                        <button
+                                            v-if="editorMode === 'secrets'"
+                                            type="button"
+                                            class="env-kv-reveal"
+                                            :title="
+                                                row.revealed
+                                                    ? 'Hide secret'
+                                                    : 'Show secret'
+                                            "
+                                            @click="
+                                                row.revealed = !row.revealed
+                                            "
+                                        >
+                                            <i
+                                                :class="
+                                                    row.revealed
+                                                        ? 'fa fa-eye-slash'
+                                                        : 'fa fa-eye'
+                                                "
+                                            ></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                <td
+                                    class="env-kv-delete"
+                                    @click="removeEnvironmentRow(index)"
+                                    v-if="!isBlankEnvironmentRow(row, index)"
+                                >
+                                    <i class="fa fa-trash"></i>
+                                </td>
+                                <td v-else></td>
+                            </tr>
+                        </table>
+                    </div>
                     <div style="margin-top: 1rem">
                         <div v-if="parseError" class="box">
                             {{ parseError }}
@@ -213,9 +285,8 @@
                         "
                     >
                         <span v-pre
-                            ><span class="code">"key": "value"</span> pairs
-                            defined in the above JSON object can be referenced
-                            in any text input in the request panel using
+                            >Keys defined above can be referenced in any text
+                            input in the request panel using
                             <span class="code">{{ key }}</span> for variable
                             substitution</span
                         >
@@ -267,7 +338,7 @@
 
 <script>
 import Modal from "@/components/Modal.vue";
-import CodeMirrorEditor from "@/components/CodeMirrorEditor.vue";
+import CodeMirrorSingleLine from "@/components/CodeMirrorSingleLine.vue";
 import EditTagModal from "@/components/modals/EditTagModal.vue";
 import { nextTick } from "vue";
 import { emitter } from "@/event-bus";
@@ -280,6 +351,10 @@ import {
 } from "@/utils/environment-secrets";
 import { convertPostmanVariableValues } from "@/parsers/postman";
 import { environmentEmoji, isSingleEmoji } from "@/utils/environment-marker";
+import {
+    environmentFromRows,
+    rowsFromEnvironment,
+} from "@/utils/environment-rows";
 
 export default {
     props: {
@@ -289,12 +364,14 @@ export default {
     },
     components: {
         Modal,
-        CodeMirrorEditor,
+        CodeMirrorSingleLine,
         EditTagModal,
     },
     data() {
         return {
             environment: "{}",
+            rows: [],
+            loadingRows: false,
             environmentToSave: {},
             parseError: "",
             clickedContextMenuEnvironment: { name: "" },
@@ -372,23 +449,24 @@ export default {
 
             return undefined;
         },
-        editorKey() {
-            return `${this.editingGlobals ? "globals" : this.currentEnvironment}-${this.editorMode}`;
-        },
         tagAutocompletions() {
             return constants.AUTOCOMPLETIONS.TAGS;
         },
     },
     watch: {
         collectionItem() {
-            this.environment = this.collectionItem.environment
-                ? jsonStringify(this.collectionItem.environment)
-                : "{}";
+            this.setEnvironmentText(
+                this.collectionItem.environment
+                    ? jsonStringify(this.collectionItem.environment)
+                    : "{}",
+            );
         },
         workspace() {
-            this.environment = this.workspace.environment
-                ? jsonStringify(this.workspace.environment)
-                : "{}";
+            this.setEnvironmentText(
+                this.workspace.environment
+                    ? jsonStringify(this.workspace.environment)
+                    : "{}",
+            );
         },
         environment() {
             let environment = {};
@@ -419,14 +497,18 @@ export default {
                 this.editingGlobals = false;
                 this.editorMode = "variables";
                 if (this.collectionItem) {
-                    this.environment = this.collectionItem.environment
-                        ? jsonStringify(this.collectionItem.environment)
-                        : "{}";
+                    this.setEnvironmentText(
+                        this.collectionItem.environment
+                            ? jsonStringify(this.collectionItem.environment)
+                            : "{}",
+                    );
                 }
                 if (this.workspace) {
-                    this.environment = this.workspace.environment
-                        ? jsonStringify(this.workspace.environment)
-                        : "{}";
+                    this.setEnvironmentText(
+                        this.workspace.environment
+                            ? jsonStringify(this.workspace.environment)
+                            : "{}",
+                    );
                 }
                 nextTick(() => {
                     this.$refs[
@@ -601,7 +683,7 @@ export default {
                 manuallyTriggerSave = true;
             }
 
-            this.environment = environmentString;
+            this.setEnvironmentText(environmentString);
 
             if (manuallyTriggerSave) {
                 const parsed = JSON.parse(this.environment);
@@ -630,7 +712,7 @@ export default {
                 this.editorMode === "secrets"
                     ? (this.workspace.globalSecrets ?? {})
                     : (this.workspace.globals ?? {});
-            this.environment = jsonStringify(source);
+            this.setEnvironmentText(jsonStringify(source));
         },
         setEditorMode(mode) {
             if (this.editorMode === mode) {
@@ -668,7 +750,68 @@ export default {
                           {});
             }
 
-            this.environment = jsonStringify(source);
+            this.setEnvironmentText(jsonStringify(source));
+        },
+        setEnvironmentText(text) {
+            const next = text && text.trim() !== "" ? text : "{}";
+            this.loadingRows = true;
+
+            let parsed = {};
+            try {
+                parsed = JSON.parse(next);
+            } catch {
+                parsed = {};
+            }
+
+            this.rows = rowsFromEnvironment(parsed).map((row) => ({
+                ...row,
+                id: this.nextRowId(),
+            }));
+            this.ensureBlankRow();
+            this.environment = next;
+            nextTick(() => {
+                this.loadingRows = false;
+            });
+        },
+        nextRowId() {
+            this.rowId = (this.rowId ?? 0) + 1;
+            return this.rowId;
+        },
+        ensureBlankRow() {
+            const last = this.rows[this.rows.length - 1];
+            if (!last || last.key !== "" || last.value !== "") {
+                this.rows.push({
+                    id: this.nextRowId(),
+                    key: "",
+                    value: "",
+                    stored: undefined,
+                });
+            }
+        },
+        isBlankEnvironmentRow(row, index) {
+            return (
+                index === this.rows.length - 1 &&
+                row.key === "" &&
+                row.value === ""
+            );
+        },
+        onEnvironmentRowInput() {
+            if (this.loadingRows) {
+                return;
+            }
+
+            this.ensureBlankRow();
+            const next = jsonStringify(environmentFromRows(this.rows));
+            if (next === this.environment) {
+                return;
+            }
+
+            this.environment = next;
+        },
+        removeEnvironmentRow(index) {
+            this.rows.splice(index, 1);
+            this.ensureBlankRow();
+            this.environment = jsonStringify(environmentFromRows(this.rows));
         },
         persistGlobals(value) {
             if (this.editorMode === "secrets") {
@@ -1324,6 +1467,79 @@ export default {
     display: grid;
     grid-template-rows: auto 1fr auto;
     overflow: auto;
+}
+
+.env-kv-editor {
+    overflow: auto;
+    min-height: 0;
+}
+
+.env-kv-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+}
+
+.env-kv-table th {
+    text-align: left;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0 0.35rem 0.35rem;
+}
+
+.env-kv-table th:first-child {
+    width: 34%;
+}
+
+.env-kv-table th:last-child,
+.env-kv-table td:last-child {
+    width: 2rem;
+}
+
+.env-kv-table td {
+    padding: 0.15rem 0.25rem;
+    vertical-align: middle;
+}
+
+.env-kv-delete {
+    text-align: center;
+    cursor: pointer;
+}
+
+.env-kv-value {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.env-kv-value .code-mirror-single-line,
+.env-kv-secret {
+    flex: 1;
+    min-width: 0;
+}
+
+.env-kv-secret {
+    width: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--input-border-color);
+    border-radius: var(--default-border-radius);
+    background: var(--modal-background-color);
+    color: var(--text-color);
+    padding: 0.35rem 0.45rem;
+    font: inherit;
+}
+
+.env-kv-secret:focus {
+    outline: 1px solid var(--input-highlight-outline-color);
+}
+
+.env-kv-reveal {
+    flex: none;
+    border: 0;
+    background: transparent;
+    color: var(--text-color);
+    cursor: pointer;
+    padding: 0.2rem 0.35rem;
 }
 
 .env-editor-tabs {
