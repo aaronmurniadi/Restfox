@@ -2,11 +2,18 @@
 import WorkspacesFrame from '@/components/WorkspacesFrame.vue'
 import Frame from '@/components/Frame.vue'
 import ReloadPrompt from '@/components/ReloadPrompt.vue'
+import GitHubLoginGate from '@/components/GitHubLoginGate.vue'
 </script>
 
 <template>
-    <WorkspacesFrame v-if="appLoaded && !activeWorkspaceLoaded" />
-    <Frame v-if="appLoaded && activeWorkspaceLoaded" />
+    <GitHubLoginGate
+        v-if="requiresGitHub && !githubReady"
+        :error="githubError"
+        :status="githubStatus"
+        :busy="githubBusy"
+    />
+    <WorkspacesFrame v-else-if="appLoaded && !activeWorkspaceLoaded" />
+    <Frame v-else-if="appLoaded && activeWorkspaceLoaded" />
     <ReloadPrompt />
     <alert-confirm-prompt attach-to-window="true" />
 </template>
@@ -26,6 +33,7 @@ import {
 } from './helpers'
 import { getAnalyticsPageUrl, sendPageView } from '@/utils/analytics'
 import { forgetFailedGrpcSchemaLoads } from '@/utils/grpc-calls'
+import { initGitHubSession } from '@/utils/github-session'
 import { emitter } from './event-bus'
 import './web-components/alert-confirm-prompt'
 
@@ -34,6 +42,10 @@ export default {
         return {
             currentlySelectedContextMenuItemIndex: -1,
             appLoaded: false,
+            githubReady: false,
+            githubBusy: false,
+            githubError: '',
+            githubStatus: '',
         }
     },
     computed: {
@@ -56,7 +68,10 @@ export default {
         },
         openContextMenuElement() {
             return this.$store.state.openContextMenuElement
-        }
+        },
+        requiresGitHub() {
+            return import.meta.env.MODE !== 'web-standalone'
+        },
     },
     watch: {
         async activeWorkspace() {
@@ -234,15 +249,47 @@ export default {
         },
     },
     async created() {
-        this.$store.dispatch('loadGlobalPlugins')
-        await this.$store.dispatch('loadWorkspaces', () => {
-            this.appLoaded = true
-        })
-
         if(import.meta.env.MODE === 'web-standalone') {
             this.$store.state.flags.isBrowser = false
             this.$store.state.flags.isWebStandalone = true
+            this.githubReady = true
+        } else {
+            const params = new URLSearchParams(window.location.search)
+            if(params.get('github') === 'error') {
+                this.githubError = params.get('message') || 'GitHub sign-in failed'
+            }
+            if(params.get('github')) {
+                window.history.replaceState({}, '', window.location.pathname)
+            }
+
+            this.githubBusy = true
+            this.githubStatus = 'Checking GitHub session…'
+            try {
+                const session = await initGitHubSession(message => {
+                    this.githubStatus = message
+                })
+                if(session.authenticated) {
+                    this.githubReady = true
+                    this.$store.commit('setGitHubSession', session)
+                } else {
+                    this.githubReady = false
+                }
+            } catch(error) {
+                this.githubError = error.message || 'Could not prepare the local GitHub cache'
+                this.githubReady = false
+            } finally {
+                this.githubBusy = false
+                this.githubStatus = ''
+            }
+
+            if(!this.githubReady) {
+                return
+            }
         }
+
+        this.$store.dispatch('loadGlobalPlugins')
+        await this.$store.dispatch('loadWorkspaces')
+        this.appLoaded = true
     },
     mounted() {
         const messageHandler = message => {

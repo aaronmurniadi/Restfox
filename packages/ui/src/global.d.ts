@@ -1,4 +1,4 @@
-export {}
+export { }
 
 declare global {
     interface Window {
@@ -260,14 +260,14 @@ export interface RequestFinalResponse {
     headTimeTaken?: number
     bodyTimeTaken?: number
     request: {
-      method: string
-      query: string
-      headers: Record<string, string>
-      headersSent?: RequestInitialResponseHeader[]
-      body: any
-      original: CollectionItem
-      // what a masked prompt tag left out above, missing when nothing was
-      maskedPromptOmitted?: MaskedPromptOmitted
+        method: string
+        query: string
+        headers: Record<string, string>
+        headersSent?: RequestInitialResponseHeader[]
+        body: any
+        original: CollectionItem
+        // what a masked prompt tag left out above, missing when nothing was
+        maskedPromptOmitted?: MaskedPromptOmitted
     }
     createdAt: number
     testResults: any[]
@@ -374,6 +374,13 @@ export interface State {
     requestResponseLayout: string
     theme: string
     githubStarCount: string
+    githubSession: null | {
+        authenticated: true
+        user: { id: number, login: string, name: string | null, avatarUrl: string }
+        repo: { fullName: string, owner: string, name: string, cloneUrl: string, htmlUrl: string, created: boolean }
+        accessToken: string
+    }
+    githubSyncStatus: null | { dirty: boolean, ahead: number, behind: number, branch: string }
     sidebarItemTemporaryName: { [key: string]: string }
     flags: Flags
     settings: Settings
@@ -491,7 +498,7 @@ export interface PluginExpose {
 export interface OpenApiSpecPathParams {
     paths: {
         [x: string]: {
-            [x:string]:{
+            [x: string]: {
                 parameters?: {
                     name: 'string',
                     in: 'path' | 'else',

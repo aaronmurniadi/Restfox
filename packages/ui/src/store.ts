@@ -85,32 +85,32 @@ const runningSends = new Map<string, Set<AbortController>>()
 // arrival times live only as long as their response does in memory
 function dropResponseChunkTimes(state: State, responses: { _id?: string }[] | undefined) {
     responses?.forEach(response => {
-        if(response._id) {
+        if (response._id) {
             delete state.responseChunkTimes[response._id]
         }
     })
 }
 
 async function loadResponses(state: State, tabId: string) {
-    if(tabId in state.responses) {
+    if (tabId in state.responses) {
         return
     }
 
-    if(state.activeWorkspace === null) {
+    if (state.activeWorkspace === null) {
         throw new Error('activeWorkspace is null')
     }
 
     const workspaceId = state.activeWorkspace._id
     const responses = await getResponsesByCollectionId(workspaceId, tabId)
-    if(state.activeWorkspace?._id !== workspaceId) {
+    if (state.activeWorkspace?._id !== workspaceId) {
         return
     }
     state.responses[tabId] = responses
     // a response shown while the history loaded, such as a gRPC call that ended and is being saved, stays shown
-    if((tabId in state.requestResponses) && state.requestResponses[tabId] !== null) {
+    if ((tabId in state.requestResponses) && state.requestResponses[tabId] !== null) {
         return
     }
-    if(state.responses[tabId].length > 0) {
+    if (state.responses[tabId].length > 0) {
         state.requestResponses[tabId] = state.responses[tabId][0]
         state.requestResponseStatus[tabId] = 'loaded'
     } else {
@@ -121,7 +121,7 @@ async function loadResponses(state: State, tabId: string) {
 
 function setActiveTab(state: State, tab: CollectionItem, scrollSidebarItemIntoView = false, persistActiveWorkspaceTabsBool = true) {
     // skip setActiveTab as it's already the active tab
-    if(state.activeTab && state.activeTab._id === tab._id) {
+    if (state.activeTab && state.activeTab._id === tab._id) {
         return
     }
 
@@ -129,19 +129,19 @@ function setActiveTab(state: State, tab: CollectionItem, scrollSidebarItemIntoVi
 
     // migrating old unsynced query params to new format, for the types that had them: a gRPC item's url is a server
     // address with no query, and a type only a newer version knows is never changed
-    if((tab._type === 'request' || tab._type === 'socket') && ('url' in tab || 'parameters' in tab)) {
+    if ((tab._type === 'request' || tab._type === 'socket') && ('url' in tab || 'parameters' in tab)) {
         queryParamsSync.migrateOldData(tab)
     }
 
     state.activeTab = tab
 
     loadResponses(state, tab._id)
-    if(scrollSidebarItemIntoView) {
-        if(tab.parentId) {
+    if (scrollSidebarItemIntoView) {
+        if (tab.parentId) {
             let currentParentId: string | null | undefined = tab.parentId
             while (currentParentId) {
                 const parentFolder = findItemInTreeById(state.collectionTree, currentParentId)
-                if(parentFolder && parentFolder.collapsed) {
+                if (parentFolder && parentFolder.collapsed) {
                     parentFolder.collapsed = false
                     store.dispatch('saveCollectionItemCollapsedState', { _id: parentFolder._id, collapsed: parentFolder.collapsed })
                     console.log(`parent folder ${parentFolder.name} was collapsed and has been auto expanded`)
@@ -151,7 +151,7 @@ function setActiveTab(state: State, tab: CollectionItem, scrollSidebarItemIntoVi
         }
         nextTick(() => {
             const activeSidebarElement = document.querySelector(`.sidebar-list-container div[data-id="${tab._id}"]`)
-            if(activeSidebarElement) {
+            if (activeSidebarElement) {
                 activeSidebarElement.scrollIntoView({
                     behavior: 'auto',
                     block: 'center',
@@ -165,17 +165,17 @@ function setActiveTab(state: State, tab: CollectionItem, scrollSidebarItemIntoVi
         })
     }
 
-    if(persistActiveWorkspaceTabsBool) {
+    if (persistActiveWorkspaceTabsBool) {
         persistActiveWorkspaceTabs(state)
     }
 }
 
 function getAllParents(collection: CollectionItem[], parentArray: CollectionItem[], request: CollectionItem) {
-    if(!request.parentId) {
+    if (!request.parentId) {
         return
     }
     const requestParent = collection.find(item => item._id === request.parentId)
-    if(requestParent) {
+    if (requestParent) {
         parentArray.push(requestParent)
         getAllParents(collection, parentArray, requestParent)
     }
@@ -188,11 +188,11 @@ function environmentFieldsForCopy(source: { environment?: any, environments?: an
         currentEnvironment: source.currentEnvironment,
     }
 
-    if(source.globals !== undefined) {
+    if (source.globals !== undefined) {
         copy.globals = source.globals
     }
 
-    if(source.globalSecrets !== undefined) {
+    if (source.globalSecrets !== undefined) {
         copy.globalSecrets = source.globalSecrets
     }
 
@@ -206,18 +206,18 @@ async function getEnvironmentForRequest(requestWorkspace: Workspace, requestPare
     const headers: Record<string, string[]> = {}
     let authentication: RequestAuthentication | undefined = undefined
 
-    for(const parent of requestParentArray) {
-        if(parent.authentication && hasOwnAuthentication(parent.authentication)) {
+    for (const parent of requestParentArray) {
+        if (parent.authentication && hasOwnAuthentication(parent.authentication)) {
             authentication = parent.authentication
-        } else if(getAuthenticationType(parent.authentication) === 'none') {
+        } else if (getAuthenticationType(parent.authentication) === 'none') {
             // a folder set to No Auth stops the auth of the folders above it, one whose own auth is unticked passes it through
             authentication = undefined
         }
 
-        if(parent.headers) {
+        if (parent.headers) {
             const parentHeadersObject: Record<string, string[]> = {}
             parent.headers.filter(header => !header.disabled && header.name !== '').forEach(header => {
-                if(parentHeadersObject[header.name]) {
+                if (parentHeadersObject[header.name]) {
                     parentHeadersObject[header.name].push(header.value)
                 } else {
                     parentHeadersObject[header.name] = [header.value]
@@ -238,7 +238,7 @@ const workspaceCache: WorkspaceCache = {
 async function loadWorkspaceTabs(context: ActionContext<State, State>) {
     const state = context.state
 
-    if(state.activeWorkspace === null) {
+    if (state.activeWorkspace === null) {
         throw new Error('activeWorkspace is null')
     }
 
@@ -258,20 +258,20 @@ async function loadWorkspaceTabs(context: ActionContext<State, State>) {
     const idMap = state.idMap
     let activeTabId: string | null = null
 
-    if(idMap !== null) {
+    if (idMap !== null) {
         originalTabIds.forEach(tabId => {
             const retrievedTabId = idMap.get(tabId)
-            if(retrievedTabId) {
+            if (retrievedTabId) {
                 tabIds.push(retrievedTabId)
             }
         })
         detachedTabIds.forEach(tabId => {
             const retrievedTabId = idMap.get(tabId)
-            if(retrievedTabId) {
+            if (retrievedTabId) {
                 newDetachedTabIds.push(retrievedTabId)
             }
         })
-        if(state.activeWorkspace.activeTabId) {
+        if (state.activeWorkspace.activeTabId) {
             activeTabId = idMap.get(state.activeWorkspace.activeTabId) ?? null
         }
     } else {
@@ -294,17 +294,17 @@ async function loadWorkspaceTabs(context: ActionContext<State, State>) {
     workspaceCache.tabs[workspaceId] = state.collection.filter(collectionItem => tabIds.includes(collectionItem._id)).sort((a, b) => tabIdsOrder[a._id] - tabIdsOrder[b._id])
 
     let activeTab = workspaceCache.tabs[workspaceId].find(tab => tab._id === activeTabId)
-    if(activeTab === undefined) {
-        if(workspaceCache.tabs[workspaceId].length > 0) {
+    if (activeTab === undefined) {
+        if (workspaceCache.tabs[workspaceId].length > 0) {
             activeTab = workspaceCache.tabs[workspaceId][0]
         }
     }
-    workspaceCache.activeTab[workspaceId] =  activeTab ?? null
+    workspaceCache.activeTab[workspaceId] = activeTab ?? null
 
     state.tabs = workspaceCache.tabs[workspaceId]
     state.activeTab = null
 
-    if(workspaceCache.activeTab[workspaceId]) {
+    if (workspaceCache.activeTab[workspaceId]) {
         setActiveTab(state, workspaceCache.activeTab[workspaceId] as CollectionItem, true, false)
     }
 
@@ -319,7 +319,7 @@ async function loadWorkspaceTabs(context: ActionContext<State, State>) {
 // - Tab closed
 // - Tab reordered
 async function persistActiveWorkspaceTabs(state: State) {
-    if(state.activeWorkspace === null) {
+    if (state.activeWorkspace === null) {
         throw new Error('activeWorkspace is null')
     }
 
@@ -378,6 +378,13 @@ export const store = createStore<State>({
             requestResponseLayout: 'left-right',
             theme: 'light',
             githubStarCount: '0',
+            githubSession: null as null | {
+                authenticated: true
+                user: { id: number, login: string, name: string | null, avatarUrl: string }
+                repo: { fullName: string, owner: string, name: string, cloneUrl: string, htmlUrl: string, created: boolean }
+                accessToken: string
+            },
+            githubSyncStatus: null as null | { dirty: boolean, ahead: number, behind: number, branch: string },
             sidebarItemTemporaryName: {},
             flags: {
                 hideBrowserRelatedResponsePanelErrors: false,
@@ -427,7 +434,7 @@ export const store = createStore<State>({
     },
     getters: {
         collectionTreeFiltered(state) {
-            if(state.collectionFilter) {
+            if (state.collectionFilter) {
                 return filterTree(state.collectionTree, state.collectionFilter)
             }
 
@@ -456,14 +463,14 @@ export const store = createStore<State>({
         closeTab(state, collectionItemId) {
             const tabIndex = state.tabs.findIndex(tabItem => tabItem._id === collectionItemId)
 
-            if(tabIndex === -1) {
+            if (tabIndex === -1) {
                 return
             }
 
             const tabIndexLeft = tabIndex - 1
             const tabIndexRight = tabIndex + 1
 
-            if(state.activeTab && state.activeTab._id === collectionItemId) {
+            if (state.activeTab && state.activeTab._id === collectionItemId) {
                 state.activeTab = tabIndexLeft >= 0 ? state.tabs[tabIndexLeft] : (tabIndexRight <= state.tabs.length - 1 ? state.tabs[tabIndexRight] : null)
             }
 
@@ -501,8 +508,8 @@ export const store = createStore<State>({
             state.collectionFilter = filter
         },
         persistCollectionItem(state, collectionItem) {
-            if(state.activeTab && state.activeTab._id === collectionItem._id) {
-                if(state.skipPersistingActiveTab) {
+            if (state.activeTab && state.activeTab._id === collectionItem._id) {
+                if (state.skipPersistingActiveTab) {
                     console.log('persistCollectionItem: skipPersistingActiveTab is true, so skipping')
                     state.skipPersistingActiveTab = false
                     return
@@ -514,11 +521,11 @@ export const store = createStore<State>({
             const collectionItemToSaveJSON = JSON.stringify(collectionItem)
             const collectionItemToSave = JSON.parse(collectionItemToSaveJSON)
 
-            if('body' in collectionItem && 'params' in collectionItem.body) {
+            if ('body' in collectionItem && 'params' in collectionItem.body) {
                 const params: RequestParam[] = []
-                for(const param of collectionItem.body.params) {
+                for (const param of collectionItem.body.params) {
                     const paramExtracted = { ...param }
-                    if('files' in paramExtracted) {
+                    if ('files' in paramExtracted) {
                         paramExtracted.files = [...paramExtracted.files].filter(file => file instanceof File)
                     }
                     params.push(paramExtracted)
@@ -526,7 +533,7 @@ export const store = createStore<State>({
                 collectionItemToSave.body.params = params
             }
 
-            if('body' in collectionItem && 'fileName' in collectionItem.body) {
+            if ('body' in collectionItem && 'fileName' in collectionItem.body) {
                 collectionItemToSave.body.fileName = toRaw(collectionItem.body.fileName)
             }
 
@@ -541,8 +548,8 @@ export const store = createStore<State>({
             state.sidebarContextMenuElement = null
         },
         async updateCollectionItemEnvironment(state, { collectionId, environment }) {
-            if(environment) {
-                if(state.activeWorkspace === null) {
+            if (environment) {
+                if (state.activeWorkspace === null) {
                     throw new Error('activeWorkspace is null')
                 }
 
@@ -550,13 +557,13 @@ export const store = createStore<State>({
             }
         },
         async updateWorkspaceEnvironment(_state, { workspaceId, environment }) {
-            if(environment) {
+            if (environment) {
                 await updateWorkspace(workspaceId, { environment: JSON.parse(JSON.stringify(environment)) })
             }
         },
         async updateCollectionItemEnvironments(state, { collectionId, environments }) {
-            if(environments) {
-                if(state.activeWorkspace === null) {
+            if (environments) {
+                if (state.activeWorkspace === null) {
                     throw new Error('activeWorkspace is null')
                 }
 
@@ -564,23 +571,23 @@ export const store = createStore<State>({
             }
         },
         async updateWorkspaceEnvironments(_state, { workspaceId, environments }) {
-            if(environments) {
+            if (environments) {
                 await updateWorkspace(workspaceId, { environments: JSON.parse(JSON.stringify(environments)) })
             }
         },
         async updateWorkspaceGlobals(_state, { workspaceId, globals }) {
-            if(globals) {
+            if (globals) {
                 await updateWorkspace(workspaceId, { globals: JSON.parse(JSON.stringify(globals)) })
             }
         },
         async updateWorkspaceGlobalSecrets(_state, { workspaceId, globalSecrets }) {
-            if(globalSecrets) {
+            if (globalSecrets) {
                 await updateWorkspace(workspaceId, { globalSecrets: JSON.parse(JSON.stringify(globalSecrets)) })
             }
         },
         async updateCollectionItemCurrentEnvironment(state, { collectionId, currentEnvironment }) {
-            if(currentEnvironment) {
-                if(state.activeWorkspace === null) {
+            if (currentEnvironment) {
+                if (state.activeWorkspace === null) {
                     throw new Error('activeWorkspace is null')
                 }
 
@@ -588,16 +595,22 @@ export const store = createStore<State>({
             }
         },
         async updateWorkspaceCurrentEnvironment(_state, { workspaceId, currentEnvironment }) {
-            if(currentEnvironment) {
+            if (currentEnvironment) {
                 await updateWorkspace(workspaceId, { currentEnvironment: currentEnvironment })
             }
         },
         setWorkspaces(state, workspaces) {
             state.workspaces = workspaces
         },
+        setGitHubSession(state, session) {
+            state.githubSession = session
+        },
+        setGitHubSyncStatus(state, status) {
+            state.githubSyncStatus = status
+        },
         async setActiveWorkspace(state, workspace) {
             state.activeWorkspace = workspace
-            if(workspace === null) {
+            if (workspace === null) {
                 state.tabs = []
                 state.activeTab = null
                 state.plugins.workspace = []
@@ -605,7 +618,7 @@ export const store = createStore<State>({
             }
         },
         async loadWorkspacePlugins(state) {
-            if(state.activeWorkspace === null) {
+            if (state.activeWorkspace === null) {
                 throw new Error('activeWorkspace is null')
             }
             console.log('loadWorkspacePlugins')
@@ -627,11 +640,11 @@ export const store = createStore<State>({
                 updatedAt: new Date().getTime()
             }
 
-            if(newPlugin.workspaceId === null && newPlugin.collectionId === null) {
+            if (newPlugin.workspaceId === null && newPlugin.collectionId === null) {
                 await createPlugin(newPlugin)
                 state.plugins.global.push(newPlugin)
             } else {
-                if(state.activeWorkspace === null) {
+                if (state.activeWorkspace === null) {
                     throw new Error('activeWorkspace is null')
                 }
 
@@ -658,11 +671,11 @@ export const store = createStore<State>({
             foundPlugin.updatedAt = updatePluginData.updatedAt
 
             // plugin scope changed from global to workspace
-            if(!previousWorkspaceId && newWorkspaceId) {
+            if (!previousWorkspaceId && newWorkspaceId) {
                 state.plugins.global = state.plugins.global.filter(item => item._id !== foundPlugin._id)
                 state.plugins.workspace.push(foundPlugin)
 
-                if(state.activeWorkspace?._type === 'file') {
+                if (state.activeWorkspace?._type === 'file') {
                     await deletePlugin(plugin._id)
                     await createPlugin(toRaw(foundPlugin), state.activeWorkspace._id)
                     return
@@ -670,21 +683,21 @@ export const store = createStore<State>({
             }
 
             // plugin scope changed from workspace to global
-            if(previousWorkspaceId && !newWorkspaceId) {
+            if (previousWorkspaceId && !newWorkspaceId) {
                 state.plugins.workspace = state.plugins.workspace.filter(item => item._id !== foundPlugin._id)
                 state.plugins.global.push(foundPlugin)
 
-                if(state.activeWorkspace?._type === 'file') {
+                if (state.activeWorkspace?._type === 'file') {
                     await deletePlugin(plugin._id, state.activeWorkspace._id)
                     await createPlugin(toRaw(foundPlugin))
                     return
                 }
             }
 
-            if(foundPlugin.workspaceId === null && !foundPlugin.collectionId) {
+            if (foundPlugin.workspaceId === null && !foundPlugin.collectionId) {
                 await updatePlugin(plugin._id, updatePluginData)
             } else {
-                if(state.activeWorkspace === null) {
+                if (state.activeWorkspace === null) {
                     throw new Error('activeWorkspace is null')
                 }
 
@@ -694,10 +707,10 @@ export const store = createStore<State>({
         async updatePluginStatus(state, plugin) {
             const foundPlugin = [...state.plugins.global, ...state.plugins.workspace].find(item => item._id === plugin._id)
 
-            if(foundPlugin.workspaceId === null && !foundPlugin.collectionId) {
+            if (foundPlugin.workspaceId === null && !foundPlugin.collectionId) {
                 await updatePlugin(plugin._id, { enabled: plugin.enabled })
             } else {
-                if(state.activeWorkspace === null) {
+                if (state.activeWorkspace === null) {
                     throw new Error('activeWorkspace is null')
                 }
 
@@ -709,11 +722,11 @@ export const store = createStore<State>({
         async deletePlugin(state, pluginId) {
             const foundPlugin = [...state.plugins.global, ...state.plugins.workspace].find(item => item._id === pluginId)
 
-            if(foundPlugin.workspaceId === null && !foundPlugin.collectionId) {
+            if (foundPlugin.workspaceId === null && !foundPlugin.collectionId) {
                 await deletePlugin(pluginId)
                 state.plugins.global = state.plugins.global.filter(plugin => plugin._id !== pluginId)
             } else {
-                if(state.activeWorkspace === null) {
+                if (state.activeWorkspace === null) {
                     throw new Error('activeWorkspace is null')
                 }
 
@@ -737,7 +750,7 @@ export const store = createStore<State>({
             activeResponse.name = newResponseName !== '' ? newResponseName : null
             // the history entry, which is a copy of the one shown once a send saved it
             const historyEntry = state.responses[item._id]?.find(response => response._id === activeResponse._id)
-            if(historyEntry) {
+            if (historyEntry) {
                 historyEntry.name = activeResponse.name
             }
             await updateResponse(item.workspaceId, activeResponse.collectionId, activeResponse._id, { name: activeResponse.name })
@@ -748,7 +761,7 @@ export const store = createStore<State>({
             await deleteResponse(item.workspaceId, responseToDelete.collectionId, responseToDelete._id)
             dropResponseChunkTimes(state, [responseToDelete])
             state.responses[item._id] = state.responses[item._id].filter(response => response._id !== responseToDelete._id)
-            if(state.responses[item._id].length > 0) {
+            if (state.responses[item._id].length > 0) {
                 state.requestResponses[item._id] = state.responses[item._id][0]
                 state.requestResponseStatus[item._id] = 'loaded'
             } else {
@@ -846,18 +859,18 @@ export const store = createStore<State>({
 
             const existingTab = context.state.tabs.find(tabItem => tabItem._id === id)
 
-            if(!existingTab) {
+            if (!existingTab) {
                 // remove from detached tabs if it exists there
                 context.state.detachedTabs = context.state.detachedTabs.filter(detachedTab => detachedTab._id !== id)
 
                 const tabCopy = JSON.parse(JSON.stringify(tab))
 
-                if('body' in tab) {
-                    if('params' in tab.body) {
+                if ('body' in tab) {
+                    if ('params' in tab.body) {
                         const params: RequestParam[] = []
-                        for(const param of tab.body.params) {
+                        for (const param of tab.body.params) {
                             const paramExtracted = { ...param }
-                            if('files' in paramExtracted) {
+                            if ('files' in paramExtracted) {
                                 paramExtracted.files = [...paramExtracted.files]
                             }
                             params.push(paramExtracted)
@@ -865,7 +878,7 @@ export const store = createStore<State>({
                         tabCopy.body.params = params
                     }
 
-                    if('fileName' in tab.body) {
+                    if ('fileName' in tab.body) {
                         tabCopy.body.fileName = tab.body.fileName
                     }
                 }
@@ -887,7 +900,7 @@ export const store = createStore<State>({
             context.dispatch('reloadTabEnvironmentResolved')
         },
         async deleteCollectionItem(context, collectionItem) {
-            if(context.state.activeWorkspace === null) {
+            if (context.state.activeWorkspace === null) {
                 throw new Error('activeWorkspace is null')
             }
 
@@ -900,7 +913,7 @@ export const store = createStore<State>({
 
             const result = await deleteCollectionsByIds(context.state.activeWorkspace._id, childIds)
 
-            if(result.error) {
+            if (result.error) {
                 emitter.emit('error', result.error)
                 return
             }
@@ -911,7 +924,7 @@ export const store = createStore<State>({
                 context.commit('closeTab', childId)
                 context.state.detachedTabs = context.state.detachedTabs.filter(detachedTab => detachedTab._id !== childId)
                 // clear unneeded response cache
-                if(childId in context.state.responses) {
+                if (childId in context.state.responses) {
                     dropResponseChunkTimes(context.state, context.state.responses[childId])
                     delete context.state.responses[childId]
                     delete context.state.requestResponses[childId]
@@ -922,11 +935,11 @@ export const store = createStore<State>({
             })
             context.state.collection = context.state.collection.filter(item => childIds.includes(item._id) === false)
 
-            if(collectionItem._type === 'request_group') {
+            if (collectionItem._type === 'request_group') {
                 emitter.emit('request_group', 'deleted')
             }
 
-            if(childIds.length > 0) {
+            if (childIds.length > 0) {
                 persistActiveWorkspaceTabs(context.state)
             }
         },
@@ -939,14 +952,14 @@ export const store = createStore<State>({
             oldNewIdMapping[collectionItem._id] = newCollectionItemId
             newCollectionItem._id = newCollectionItemId
 
-            if(collectionItem._type === 'request_group') {
+            if (collectionItem._type === 'request_group') {
                 generateNewIdsForTreeItemChildren(newCollectionItem, oldNewIdMapping)
             }
 
             const collectionItemsToSave: CollectionItem[] = flattenTree([newCollectionItem])
             const result = await createCollections(collectionItem.workspaceId, collectionItemsToSave)
 
-            if(result.error) {
+            if (result.error) {
                 emitter.emit('error', result.error)
                 return result
             }
@@ -954,25 +967,25 @@ export const store = createStore<State>({
             const idMap = new Map<string, string>()
 
             result.results.forEach((collectionItemResult) => {
-                if(collectionItemResult.oldCollectionId && collectionItemResult.newCollectionId) {
+                if (collectionItemResult.oldCollectionId && collectionItemResult.newCollectionId) {
                     idMap.set(collectionItemResult.oldCollectionId, collectionItemResult.newCollectionId)
                 }
             })
 
-            if(idMap.size > 0) {
+            if (idMap.size > 0) {
                 collectionItemsToSave.forEach((collectionItemToSave) => {
                     collectionItemToSave._id = idMap.get(collectionItemToSave._id) ?? collectionItemToSave._id
-                    if(collectionItemToSave.parentId) {
+                    if (collectionItemToSave.parentId) {
                         collectionItemToSave.parentId = idMap.get(collectionItemToSave.parentId) ?? collectionItemToSave.parentId
                     }
                 })
 
                 const recursivelyUpdateIdsAndParentIds = (collectionItem: CollectionItem) => {
                     collectionItem._id = idMap.get(collectionItem._id) ?? collectionItem._id
-                    if(collectionItem.parentId) {
+                    if (collectionItem.parentId) {
                         collectionItem.parentId = idMap.get(collectionItem.parentId) ?? collectionItem.parentId
                     }
-                    if(collectionItem.children) {
+                    if (collectionItem.children) {
                         collectionItem.children.forEach(recursivelyUpdateIdsAndParentIds)
                     }
                 }
@@ -982,12 +995,12 @@ export const store = createStore<State>({
 
             context.state.collection = context.state.collection.concat(collectionItemsToSave)
 
-            if(collectionItem.parentId) {
+            if (collectionItem.parentId) {
                 const parentCollection = findItemInTreeById(context.state.collectionTree, collectionItem.parentId)
-                if(parentCollection === null) {
+                if (parentCollection === null) {
                     throw new Error('Parent collection not found')
                 }
-                if(parentCollection.children === undefined) {
+                if (parentCollection.children === undefined) {
                     throw new Error('Parent collection children not found')
                 }
                 const childIndex = parentCollection.children.findIndex(item => item._id === collectionItem._id)
@@ -1012,9 +1025,9 @@ export const store = createStore<State>({
             const plugins: Plugin[] = []
 
             context.state.plugins.workspace.forEach(plugin => {
-                if(collectionIds.includes(plugin.collectionId)) {
+                if (collectionIds.includes(plugin.collectionId)) {
                     let newCollectionId = oldNewIdMapping[plugin.collectionId]
-                    if(idMap.size > 0 && idMap.has(newCollectionId)) {
+                    if (idMap.size > 0 && idMap.has(newCollectionId)) {
                         newCollectionId = idMap.get(newCollectionId) as string
                     }
                     const newPlugin = JSON.parse(JSON.stringify(plugin))
@@ -1026,29 +1039,29 @@ export const store = createStore<State>({
                 }
             })
 
-            if(plugins.length > 0) {
+            if (plugins.length > 0) {
                 await createPlugins(plugins, collectionItem.workspaceId)
                 context.state.plugins.workspace = context.state.plugins.workspace.concat(plugins)
             }
 
-            if(newCollectionItem._type === 'request' || newCollectionItem._type === 'socket' || newCollectionItem._type === 'grpc') {
+            if (newCollectionItem._type === 'request' || newCollectionItem._type === 'socket' || newCollectionItem._type === 'grpc') {
                 context.dispatch('addTab', newCollectionItem)
             }
 
-            if(newCollectionItem._type === 'request_group') {
+            if (newCollectionItem._type === 'request_group') {
                 emitter.emit('request_group', 'added')
             }
 
             return result
         },
         async createCollectionItem(context, payload) {
-            if(context.state.activeWorkspace === null) {
+            if (context.state.activeWorkspace === null) {
                 throw new Error('activeWorkspace is null')
             }
 
             let newCollectionItem: CollectionItem | null = null
 
-            if(payload.type === 'request') {
+            if (payload.type === 'request') {
                 newCollectionItem = {
                     _id: nanoid(),
                     _type: 'request',
@@ -1062,12 +1075,12 @@ export const store = createStore<State>({
                     url: payload.url || ''
                 }
 
-                if(payload.headers) {
+                if (payload.headers) {
                     newCollectionItem['headers'] = [...payload.headers]
                 }
             }
 
-            if(payload.type === 'socket') {
+            if (payload.type === 'socket') {
                 newCollectionItem = {
                     _id: nanoid(),
                     _type: 'socket',
@@ -1077,7 +1090,7 @@ export const store = createStore<State>({
                 }
             }
 
-            if(payload.type === 'grpc') {
+            if (payload.type === 'grpc') {
                 newCollectionItem = {
                     _id: nanoid(),
                     _type: 'grpc',
@@ -1093,7 +1106,7 @@ export const store = createStore<State>({
                 }
             }
 
-            if(payload.type === 'request_group') {
+            if (payload.type === 'request_group') {
                 newCollectionItem = {
                     _id: nanoid(),
                     _type: 'request_group',
@@ -1110,23 +1123,23 @@ export const store = createStore<State>({
 
             const result = await createCollection(context.state.activeWorkspace._id, newCollectionItem)
 
-            if(result.error) {
+            if (result.error) {
                 emitter.emit('error', result.error)
                 return result
             }
 
-            if(result.newCollectionId) {
+            if (result.newCollectionId) {
                 newCollectionItem._id = result.newCollectionId
             }
 
             context.state.collection.push(newCollectionItem)
 
-            if(newCollectionItem.parentId) {
+            if (newCollectionItem.parentId) {
                 const parentCollection = findItemInTreeById(context.state.collectionTree, newCollectionItem.parentId)
-                if(parentCollection === null) {
+                if (parentCollection === null) {
                     throw new Error('Parent collection not found')
                 }
-                if(parentCollection.children === undefined) {
+                if (parentCollection.children === undefined) {
                     throw new Error('Parent collection children not found')
                 }
                 parentCollection.children.splice(0, 0, newCollectionItem)
@@ -1144,41 +1157,41 @@ export const store = createStore<State>({
                 })
             }
 
-            if(payload.type === 'request' || payload.type === 'socket' || payload.type === 'grpc') {
+            if (payload.type === 'request' || payload.type === 'socket' || payload.type === 'grpc') {
                 context.dispatch('addTab', newCollectionItem)
             }
 
-            if(payload.type === 'request_group') {
+            if (payload.type === 'request_group') {
                 emitter.emit('request_group', 'added')
             }
 
             return result
         },
         async reorderCollectionItem(context, payload) {
-            if(payload.from.id === payload.to.id) { // don't allow an item to be dropped onto itself
+            if (payload.from.id === payload.to.id) { // don't allow an item to be dropped onto itself
                 return
             }
 
             // don't allow an item to be dropped into its children
-            if(isFirstIdIndirectOrDirectParentOfSecondIdInTree(context.state.collectionTree, payload.from.id, payload.to.id)) {
+            if (isFirstIdIndirectOrDirectParentOfSecondIdInTree(context.state.collectionTree, payload.from.id, payload.to.id)) {
                 return
             }
 
             // don't allow an item to be dropped into its own nested list or a descendant's nested list
-            if(isDropIntoOwnSubtree(context.state.collectionTree, payload.from.id, payload.to.parentId)) {
+            if (isDropIntoOwnSubtree(context.state.collectionTree, payload.from.id, payload.to.parentId)) {
                 return
             }
 
             let targetKey = 'parentId'
-            if(payload.to.type === 'request_group' && payload.to.cursorPosition === 'bottom') { // dropping an item into a folder, bottom = pink highlight
+            if (payload.to.type === 'request_group' && payload.to.cursorPosition === 'bottom') { // dropping an item into a folder, bottom = pink highlight
                 targetKey = 'id'
             }
 
             let sourceParentCollection = !payload.from.parentId ? context.state.collectionTree : findItemInTreeById(context.state.collectionTree, payload.from.parentId)?.children
             let targetParentCollection = !payload.to[targetKey] ? context.state.collectionTree : findItemInTreeById(context.state.collectionTree, payload.to[targetKey])?.children
 
-            if(context.state.activeWorkspace?._type === 'file') {
-                if(sourceParentCollection === targetParentCollection) {
+            if (context.state.activeWorkspace?._type === 'file') {
+                if (sourceParentCollection === targetParentCollection) {
                     sourceParentCollection = structuredClone(toRaw(sourceParentCollection)?.map(item => toRaw(item)))
                     // we do this because when we move an item within the same parent,
                     // if both variables don't reference the same array, the item will get doubled in
@@ -1214,7 +1227,7 @@ export const store = createStore<State>({
 
             const result = await updateCollection(sourceItem.workspaceId, sourceItem._id, { parentId: sourceItem.parentId })
 
-            if(result.error) {
+            if (result.error) {
                 emitter.emit('error', result.error)
                 return
             }
@@ -1228,7 +1241,7 @@ export const store = createStore<State>({
 
             await Promise.all(sortOrderUpdates)
 
-            if(context.state.activeWorkspace?._type === 'file') {
+            if (context.state.activeWorkspace?._type === 'file') {
                 context.dispatch('refreshWorkspace')
             } else {
                 context.dispatch('refreshWorkspaceTabs')
@@ -1241,7 +1254,7 @@ export const store = createStore<State>({
             collectionId: string,
             code: { pre_request: string, post_request: string }
         }) {
-            if(context.state.activeWorkspace === null) {
+            if (context.state.activeWorkspace === null) {
                 throw new Error('activeWorkspace is null')
             }
 
@@ -1251,7 +1264,7 @@ export const store = createStore<State>({
             })
             const [scriptPlugin, ...duplicateScriptPlugins] = scriptPlugins
 
-            if(duplicateScriptPlugins.length > 0) {
+            if (duplicateScriptPlugins.length > 0) {
                 const duplicateIds = new Set(duplicateScriptPlugins.map(plugin => plugin._id))
                 context.state.plugins.workspace = context.state.plugins.workspace.filter(plugin => !duplicateIds.has(plugin._id))
             }
@@ -1262,7 +1275,7 @@ export const store = createStore<State>({
             }
             const updatedAt = new Date().getTime()
 
-            if(scriptPlugin) {
+            if (scriptPlugin) {
                 scriptPlugin.name = null
                 scriptPlugin.code = scriptCode
                 scriptPlugin.updatedAt = updatedAt
@@ -1292,7 +1305,7 @@ export const store = createStore<State>({
                 await createPlugin(newPlugin, workspaceId)
             }
 
-            for(const duplicatePlugin of duplicateScriptPlugins) {
+            for (const duplicatePlugin of duplicateScriptPlugins) {
                 await deletePlugin(duplicatePlugin._id, workspaceId, collectionId)
             }
         },
@@ -1302,7 +1315,7 @@ export const store = createStore<State>({
             parentAuthentication?: RequestAuthentication,
             requestParentArray: CollectionItem[]
         }> {
-            if(context.state.activeWorkspace === null) {
+            if (context.state.activeWorkspace === null) {
                 throw new Error('activeWorkspace is null')
             }
 
@@ -1310,7 +1323,7 @@ export const store = createStore<State>({
             getAllParents(context.state.collection, requestParentArray, collectionItem)
             requestParentArray = requestParentArray.reverse()
 
-            if(collectionItem._type === 'request_group' && includeSelf) {
+            if (collectionItem._type === 'request_group' && includeSelf) {
                 requestParentArray.push(collectionItem)
             }
 
@@ -1319,26 +1332,26 @@ export const store = createStore<State>({
             return { environment, parentHeaders, parentAuthentication, requestParentArray }
         },
         async saveResponse(context, { workspaceId, collectionId, response }) {
-            if(response._id) {
+            if (response._id) {
                 const responseToSave = structuredClone(toRaw(response))
 
-                if(context.state.activeWorkspace?._id === workspaceId && collectionId in context.state.responses === false) {
+                if (context.state.activeWorkspace?._id === workspaceId && collectionId in context.state.responses === false) {
                     await loadResponses(context.state, collectionId)
                 }
 
                 // such as a gRPC call that ended after its workspace was left. The history in memory is the open
                 // workspace's, where another file workspace's item can have the same id
-                if(context.state.activeWorkspace?._id !== workspaceId) {
+                if (context.state.activeWorkspace?._id !== workspaceId) {
                     await createResponse(workspaceId, structuredClone(responseToSave))
                     const responsesSaved = await getResponsesByCollectionId(workspaceId, collectionId)
-                    if(responsesSaved.length > constants.DEFAULT_LIMITS.RESPONSE_HISTORY) {
+                    if (responsesSaved.length > constants.DEFAULT_LIMITS.RESPONSE_HISTORY) {
                         await deleteResponsesByIds(workspaceId, collectionId, responsesSaved.slice(constants.DEFAULT_LIMITS.RESPONSE_HISTORY).map(responseItem => responseItem._id))
                     }
                     return
                 }
 
                 context.state.responses[collectionId].unshift(responseToSave)
-                if(context.state.responses[collectionId].length > constants.DEFAULT_LIMITS.RESPONSE_HISTORY) {
+                if (context.state.responses[collectionId].length > constants.DEFAULT_LIMITS.RESPONSE_HISTORY) {
                     const responsesToDelete = context.state.responses[collectionId].splice(constants.DEFAULT_LIMITS.RESPONSE_HISTORY)
                     dropResponseChunkTimes(context.state, responsesToDelete)
                     const responseIdsToDelete = responsesToDelete.map(responseItem => responseItem._id)
@@ -1353,14 +1366,14 @@ export const store = createStore<State>({
         async sendRequest(context, payload: CollectionItem | { collectionItem: CollectionItem, cancelEarlierSends: boolean }) {
             const { collectionItem: activeTab, cancelEarlierSends } = 'collectionItem' in payload ? payload : { collectionItem: payload, cancelEarlierSends: false }
 
-            if(context.state.activeWorkspace === null) {
+            if (context.state.activeWorkspace === null) {
                 throw new Error('activeWorkspace is null')
             }
 
             const secretsUnlocked = await unlockSecretsForSend(context.state.activeWorkspace, context.state.collection, activeTab, context.getters.enabledPlugins as Plugin[], [], () => {
                 context.dispatch('reloadTabEnvironmentResolved')
             })
-            if(!secretsUnlocked) {
+            if (!secretsUnlocked) {
                 return
             }
 
@@ -1369,7 +1382,7 @@ export const store = createStore<State>({
 
             const tabSends = runningSends.get(tabId) ?? new Set<AbortController>()
             runningSends.set(tabId, tabSends)
-            if(cancelEarlierSends) {
+            if (cancelEarlierSends) {
                 tabSends.forEach(earlierSend => {
                     markSendReplaced(earlierSend.signal)
                     earlierSend.abort()
@@ -1414,19 +1427,19 @@ export const store = createStore<State>({
             const requestPlugins: Plugin[] = [];
 
             (context.getters.enabledPlugins as Plugin[]).forEach(enabledPlugin => {
-                if(!enabledPlugin.workspaceId && !enabledPlugin.collectionId) {
+                if (!enabledPlugin.workspaceId && !enabledPlugin.collectionId) {
                     globalPlugins.push(enabledPlugin)
                 }
 
-                if(context.state.activeWorkspace !== null && enabledPlugin.workspaceId === context.state.activeWorkspace._id && enabledPlugin.collectionId === null) {
+                if (context.state.activeWorkspace !== null && enabledPlugin.workspaceId === context.state.activeWorkspace._id && enabledPlugin.collectionId === null) {
                     workspacePlugins.push(enabledPlugin)
                 }
 
-                if(enabledPlugin.collectionId !== null && requestParentArray.map(collectionItem => collectionItem._id).includes(enabledPlugin.collectionId)) {
+                if (enabledPlugin.collectionId !== null && requestParentArray.map(collectionItem => collectionItem._id).includes(enabledPlugin.collectionId)) {
                     requestGroupPlugins.push(enabledPlugin)
                 }
 
-                if(enabledPlugin.collectionId === activeTab._id) {
+                if (enabledPlugin.collectionId === activeTab._id) {
                     requestPlugins.push(enabledPlugin)
                 }
             })
@@ -1456,26 +1469,26 @@ export const store = createStore<State>({
                 clearTimeout(progressTimer)
                 progressTimer = undefined
                 const stream = currentStream()
-                if(stream && stream.receivedBytes !== receivedBytes) {
+                if (stream && stream.receivedBytes !== receivedBytes) {
                     stream.receivedBytes = receivedBytes
                     stream.revision++
                 }
             }
 
             const onResponseProgress = (progress: ResponseProgress) => {
-                if(progress.type === 'end') {
+                if (progress.type === 'end') {
                     // a body that ended keeps the loading overlay while scripts run, a shown one tells it has ended
                     clearTimeout(receivingTimer)
                     showProgress()
                     const stream = currentStream()
-                    if(stream) {
+                    if (stream) {
                         stream.endedAt = Date.now()
                     }
                     return
                 }
 
-                if(progress.type === 'head') {
-                    if(!isNewestSend()) {
+                if (progress.type === 'head') {
+                    if (!isNewestSend()) {
                         return
                     }
 
@@ -1496,7 +1509,7 @@ export const store = createStore<State>({
                     // Most responses end at once, an event stream such as an MCP reply too, and keep the loading overlay
                     // then show the result with no flash of the live view. The end of the body clears this timer
                     receivingTimer = setTimeout(() => {
-                        if(currentStream()) {
+                        if (currentStream()) {
                             context.state.requestResponseStatus[tabId] = 'receiving'
                         }
                     }, 250)
@@ -1508,13 +1521,13 @@ export const store = createStore<State>({
                 chunkTimes.push(Date.now() - sendStartedAt)
 
                 const stream = currentStream()
-                if(!stream) {
+                if (!stream) {
                     return
                 }
 
                 stream.chunks.push(progress.bytes)
 
-                if(progressTimer === undefined) {
+                if (progressTimer === undefined) {
                     progressTimer = setTimeout(showProgress, 100)
                 }
             }
@@ -1523,12 +1536,12 @@ export const store = createStore<State>({
                 const response = await handleRequest(activeTab, environment, parentHeaders, parentAuthentication, setEnvironmentVariableWrapper, enabledPlugins, context.state.activeWorkspace.location ?? null, abortController.signal, context.state.flags, onResponseProgress)
 
                 // a body that ended before the newer Send is a whole response and is kept
-                if(isSendReplaced(abortController.signal) && 'bodyIncomplete' in response && response.bodyIncomplete === 'cancelled') {
+                if (isSendReplaced(abortController.signal) && 'bodyIncomplete' in response && response.bodyIncomplete === 'cancelled') {
                     return response
                 }
 
                 // only while the body is the bytes that arrived, since a script can replace it
-                if('_id' in response && chunkEnds.length > 0 && response.buffer?.byteLength === receivedBytes) {
+                if ('_id' in response && chunkEnds.length > 0 && response.buffer?.byteLength === receivedBytes) {
                     context.state.responseChunkTimes[response._id] = markRaw({ chunkEnds, chunkTimes })
                 }
 
@@ -1538,7 +1551,7 @@ export const store = createStore<State>({
                 const keepsResponse = !('bodyIncomplete' in response) || response.bodyIncomplete === undefined
                     || ['events', 'lines'].includes(getStreamView(getResponseContentType(response)))
 
-                if(keepsResponse) {
+                if (keepsResponse) {
                     await context.dispatch('saveResponse', {
                         workspaceId: activeTab.workspaceId,
                         collectionId: tabId,
@@ -1546,7 +1559,7 @@ export const store = createStore<State>({
                     })
                 }
 
-                if(isNewestSend()) {
+                if (isNewestSend()) {
                     context.state.requestResponses[tabId] = response
                     context.state.requestResponseStatus[tabId] = 'loaded'
                 }
@@ -1555,15 +1568,15 @@ export const store = createStore<State>({
                 return response
             } finally {
                 tabSends.delete(abortController)
-                if(tabSends.size === 0) {
+                if (tabSends.size === 0) {
                     runningSends.delete(tabId)
                 }
                 clearTimeout(receivingTimer)
                 clearTimeout(progressTimer)
-                if(currentStream()) {
+                if (currentStream()) {
                     delete context.state.requestResponseStreams[tabId]
                     // the receiving view has nothing left to show when the response could not be saved
-                    if(context.state.requestResponseStatus[tabId] === 'receiving') {
+                    if (context.state.requestResponseStatus[tabId] === 'receiving') {
                         context.state.requestResponseStatus[tabId] = 'loading'
                     }
                 }
@@ -1571,21 +1584,29 @@ export const store = createStore<State>({
         },
         async createWorkspace(context, payload) {
             const newWorkspaceId = nanoid()
+            const useGitHub = Boolean(context.state.githubSession) && payload._type !== 'file'
+            const slugBase = (payload.name || 'workspace').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'workspace'
 
             const newWorkspace = {
                 _id: newWorkspaceId,
                 name: payload.name,
-                _type: payload._type,
-                location: payload.location,
+                _type: useGitHub ? 'github' : payload._type,
+                location: useGitHub ? (payload.location || slugBase) : payload.location,
                 createdAt: new Date().getTime(),
                 updatedAt: new Date().getTime()
             }
-
-            await putWorkspace(newWorkspace)
+            if (useGitHub) {
+                ; (newWorkspace as any).githubSlug = newWorkspace.location
+                await putWorkspace(newWorkspace)
+                const { persistWorkspaceToLocalRepo } = await import('@/utils/github-sync')
+                await persistWorkspaceToLocalRepo(newWorkspace)
+            } else {
+                await putWorkspace(newWorkspace)
+            }
 
             context.state.workspaces.unshift(newWorkspace)
 
-            if(payload.setAsActive) {
+            if (payload.setAsActive) {
                 context.commit('setActiveWorkspace', newWorkspace)
             }
 
@@ -1594,7 +1615,7 @@ export const store = createStore<State>({
         async updateWorkspace(context, payload: { _id: string; updatedFields: Partial<Workspace> }) {
             const workspace = context.state.workspaces.find(item => item._id === payload._id)
 
-            if(!workspace) {
+            if (!workspace) {
                 throw new Error('Workspace not found')
             }
 
@@ -1608,11 +1629,17 @@ export const store = createStore<State>({
                 (workspace as any)[updatedField] = payload.updatedFields[updatedField as keyof Workspace]
             })
 
+            if (workspace._type === 'github' || (workspace as any).githubSlug) {
+                const { persistWorkspaceToLocalRepo } = await import('@/utils/github-sync')
+                await persistWorkspaceToLocalRepo(workspace)
+            }
+
             context.state.workspaces.sort((a, b) => b.updatedAt - a.updatedAt)
         },
         async deleteWorkspace(context, workspaceId) {
             // first, so a call that ends meanwhile saves no response for a deleted item
             forgetGrpcCallsForWorkspace(workspaceId)
+            const workspace = context.state.workspaces.find(item => item._id === workspaceId)
             const collectionIds = await getAllCollectionIdsForGivenWorkspace(workspaceId)
             await deleteResponsesByCollectionIds(workspaceId, collectionIds)
             await deletePluginsByCollectionIds(workspaceId, collectionIds)
@@ -1620,6 +1647,10 @@ export const store = createStore<State>({
             await deletePluginsByWorkspace(workspaceId)
             context.state.plugins.workspace = context.state.plugins.workspace.filter(plugin => plugin.workspaceId !== workspaceId)
             await deleteCollectionsByWorkspaceId(workspaceId)
+            if (workspace && (workspace._type === 'github' || (workspace as any).githubSlug)) {
+                const { removeWorkspaceFromLocalRepo } = await import('@/utils/github-sync')
+                await removeWorkspaceFromLocalRepo(workspace)
+            }
             await deleteWorkspace(workspaceId)
             context.state.workspaces = context.state.workspaces.filter(item => item._id !== workspaceId)
             collectionIds.forEach(collectionId => {
@@ -1636,16 +1667,31 @@ export const store = createStore<State>({
             context.state.workspaces = context.state.workspaces.filter(item => item._id !== workspaceId)
         },
         async loadWorkspaces(context, noActiveWorkspaceCallback = null) {
-            const workspaces = await getAllWorkspaces()
+            let workspaces = await getAllWorkspaces()
 
-            if(workspaces.length > 0) {
+            // GitHub-only product path: ignore legacy IndexedDB-only and file workspaces
+            if (context.state.githubSession) {
+                const all = workspaces
+                workspaces = all.filter(item => item._type === 'github' || Boolean((item as any).githubSlug))
+                const legacyCount = all.length - workspaces.length
+                if (legacyCount > 0 && !localStorage.getItem('Restfox-LegacyLocalWorkspaceNoticeShown')) {
+                    localStorage.setItem('Restfox-LegacyLocalWorkspaceNoticeShown', '1')
+                    console.info(
+                        `Restfox: ${legacyCount} local-only workspace(s) are hidden. Collections now live in your private GitHub repository; use Import if you need to bring old data across.`,
+                    )
+                }
+            }
+
+            if (workspaces.length > 0) {
                 context.commit('setWorkspaces', workspaces)
 
                 const activeWorkspaceId = localStorage.getItem(constants.LOCAL_STORAGE_KEY.ACTIVE_WORKSPACE_ID)
-                if(activeWorkspaceId) {
+                if (activeWorkspaceId) {
                     const activeWorkspace = workspaces.find(item => item._id === activeWorkspaceId)
-                    if(activeWorkspace) {
+                    if (activeWorkspace) {
                         context.commit('setActiveWorkspace', activeWorkspace)
+                    } else if (noActiveWorkspaceCallback) {
+                        noActiveWorkspaceCallback()
                     }
                 } else {
                     if (noActiveWorkspaceCallback) {
@@ -1668,15 +1714,15 @@ export const store = createStore<State>({
             }
         },
         async saveCollectionItemCollapsedState(context, payload) {
-            if(context.state.activeWorkspace === null) {
+            if (context.state.activeWorkspace === null) {
                 throw new Error('activeWorkspace is null')
             }
             await updateCollection(context.state.activeWorkspace._id, payload._id, { collapsed: payload.collapsed })
         },
-        async duplicateWorkspace(context, { sourceWorkspace, name, type, location, includeResponseHistory } : { sourceWorkspace: Workspace, name: string, type: string, location: string, includeResponseHistory: boolean }) {
+        async duplicateWorkspace(context, { sourceWorkspace, name, type, location, includeResponseHistory }: { sourceWorkspace: Workspace, name: string, type: string, location: string, includeResponseHistory: boolean }) {
             let newWorkspaceId: string | null = null
 
-            if(type === 'file') {
+            if (type === 'file') {
                 newWorkspaceId = await context.dispatch('createWorkspace', {
                     name,
                     _type: type,
@@ -1688,7 +1734,7 @@ export const store = createStore<State>({
                 })
             }
 
-            if(newWorkspaceId === null) {
+            if (newWorkspaceId === null) {
                 throw new Error('newWorkspaceId is null')
             }
 
@@ -1710,7 +1756,7 @@ export const store = createStore<State>({
 
             const result = await createCollections(newWorkspaceId, flattenTree(collectionTree))
 
-            if(result.error) {
+            if (result.error) {
                 emitter.emit('error', result.error)
                 return result
             }
@@ -1720,7 +1766,7 @@ export const store = createStore<State>({
             const idMap = new Map<string, string>()
 
             result.results.forEach((collectionItemResult) => {
-                if(collectionItemResult.oldCollectionId && collectionItemResult.newCollectionId) {
+                if (collectionItemResult.oldCollectionId && collectionItemResult.newCollectionId) {
                     idMap.set(collectionItemResult.oldCollectionId, collectionItemResult.newCollectionId)
                 }
             })
@@ -1730,7 +1776,7 @@ export const store = createStore<State>({
             const newPlugins: Plugin[] = []
 
             plugins.forEach(plugin => {
-                if(plugin.workspaceId) {
+                if (plugin.workspaceId) {
                     const newPlugin = JSON.parse(JSON.stringify(plugin))
                     newPlugin._id = nanoid()
                     newPlugin.workspaceId = newWorkspaceId
@@ -1739,10 +1785,10 @@ export const store = createStore<State>({
                     newPlugins.push(newPlugin)
                 }
 
-                if(plugin.collectionId && plugin.collectionId in oldNewIdMapping) {
+                if (plugin.collectionId && plugin.collectionId in oldNewIdMapping) {
                     const newPlugin = JSON.parse(JSON.stringify(plugin))
                     let newCollectionId = oldNewIdMapping[plugin.collectionId]
-                    if(idMap.size > 0 && idMap.has(newCollectionId)) {
+                    if (idMap.size > 0 && idMap.has(newCollectionId)) {
                         newCollectionId = idMap.get(newCollectionId) as string
                     }
                     newPlugin._id = nanoid()
@@ -1760,8 +1806,8 @@ export const store = createStore<State>({
             let updateWorkspaceObject: Partial<Workspace> | null = null
 
             // is not null if file workspace
-            if(workspace) {
-                if(workspace.environment) {
+            if (workspace) {
+                if (workspace.environment) {
                     updateWorkspaceObject = environmentFieldsForCopy(workspace)
                 }
             } else {
@@ -1769,7 +1815,7 @@ export const store = createStore<State>({
                 updateWorkspaceObject = environmentFieldsForCopy(sourceWorkspace)
             }
 
-            if(updateWorkspaceObject && Object.keys(updateWorkspaceObject).length > 0) {
+            if (updateWorkspaceObject && Object.keys(updateWorkspaceObject).length > 0) {
                 context.dispatch('updateWorkspace', {
                     _id: newWorkspaceId,
                     updatedFields: updateWorkspaceObject
@@ -1778,17 +1824,17 @@ export const store = createStore<State>({
 
             // duplicate response history
 
-            if(includeResponseHistory) {
+            if (includeResponseHistory) {
                 console.log('Duplicating response history')
 
                 const responses: RequestFinalResponse[] = []
 
-                for(const oldCollectionId of Object.keys(oldNewIdMapping)) {
+                for (const oldCollectionId of Object.keys(oldNewIdMapping)) {
                     const responsesForCollectionId = await getResponsesByCollectionId(sourceWorkspace._id, oldCollectionId)
                     responsesForCollectionId.forEach(response => {
                         response._id = nanoid()
                         let newCollectionId = oldNewIdMapping[oldCollectionId]
-                        if(idMap.size > 0 && idMap.has(newCollectionId)) {
+                        if (idMap.size > 0 && idMap.has(newCollectionId)) {
                             newCollectionId = idMap.get(newCollectionId) as string
                         }
                         response.collectionId = newCollectionId
@@ -1798,22 +1844,22 @@ export const store = createStore<State>({
 
                 console.log('responses', responses)
 
-                for(const newResponse of responses) {
+                for (const newResponse of responses) {
                     await createResponse(newWorkspaceId, newResponse)
                 }
             }
         },
         async setCollectionTree(context, { collectionTree, parentId = null, plugins = [] }: { collectionTree: CollectionItem[], parentId: string | null, plugins: Plugin[] }) {
-            if(context.state.activeWorkspace === null) {
+            if (context.state.activeWorkspace === null) {
                 throw new Error('activeWorkspace is null')
             }
 
-            if(parentId) {
+            if (parentId) {
                 const parentCollection = findItemInTreeById(context.state.collectionTree, parentId)
-                if(parentCollection === null) {
+                if (parentCollection === null) {
                     throw new Error('Parent collection not found')
                 }
-                if(parentCollection.children === undefined) {
+                if (parentCollection.children === undefined) {
                     throw new Error('Parent collection children not found')
                 }
                 collectionTree = parentCollection.children.concat(collectionTree)
@@ -1826,7 +1872,7 @@ export const store = createStore<State>({
             const flattenedCollectionTree = JSON.parse(JSON.stringify(flattenTree(collectionTree)))
             const result = await createCollections(context.state.activeWorkspace._id, flattenedCollectionTree)
 
-            if(result.error) {
+            if (result.error) {
                 emitter.emit('error', result.error)
                 return result
             }
@@ -1834,7 +1880,7 @@ export const store = createStore<State>({
             const idMap = new Map<string, string>()
 
             result.results.forEach((collectionItemResult) => {
-                if(collectionItemResult.oldCollectionId && collectionItemResult.newCollectionId) {
+                if (collectionItemResult.oldCollectionId && collectionItemResult.newCollectionId) {
                     idMap.set(collectionItemResult.oldCollectionId, collectionItemResult.newCollectionId)
                 }
             })
@@ -1873,7 +1919,7 @@ export const store = createStore<State>({
         async refreshWorkspaceCollection(context) {
             console.log('refreshWorkspaceCollection')
 
-            if(context.state.activeWorkspace === null) {
+            if (context.state.activeWorkspace === null) {
                 throw new Error('activeWorkspace is null')
             }
 
@@ -1881,7 +1927,7 @@ export const store = createStore<State>({
             // a running gRPC call follows its item to a new id, as after a rename or a move in a file workspace, and
             // stops when its item is gone, as nothing could stop or show it then
             const collectionIds = new Set(collection.map((item: CollectionItem) => item._id))
-            if(idMap) {
+            if (idMap) {
                 // the map also holds items whose files went away outside Restfox, which the collection no longer has
                 moveGrpcCallsToNewItemIds(context.state.activeWorkspace._id, context.state.collection.map(item => item._id), new Map([...idMap].filter(([, newId]) => collectionIds.has(newId))))
             } else {
@@ -1891,9 +1937,9 @@ export const store = createStore<State>({
             context.state.idMap = idMap
 
             // is not null if file workspace
-            if(workspace) {
+            if (workspace) {
                 context.state.activeWorkspace.name = workspace.name
-                if(workspace.environment) {
+                if (workspace.environment) {
                     context.state.activeWorkspace.environment = workspace.environment
                     context.state.activeWorkspace.environments = workspace.environments
                     context.state.activeWorkspace.currentEnvironment = workspace.currentEnvironment
@@ -1907,7 +1953,7 @@ export const store = createStore<State>({
         async refreshWorkspaceTabs(context) {
             console.log('refreshWorkspaceTabs')
 
-            if(context.state.activeWorkspace === null) {
+            if (context.state.activeWorkspace === null) {
                 throw new Error('activeWorkspace is null')
             }
 
@@ -1925,57 +1971,57 @@ export const store = createStore<State>({
             context.commit('loadWorkspacePlugins')
         },
         async updateCollectionItemName(context, collectionItem) {
-            if(context.state.activeWorkspace === null) {
+            if (context.state.activeWorkspace === null) {
                 throw new Error('activeWorkspace is null')
             }
 
             const result = await updateCollection(context.state.activeWorkspace._id, collectionItem._id, { name: collectionItem.name })
 
-            if(result.error) {
+            if (result.error) {
                 emitter.emit('error', result.error)
                 return result
             }
 
-            if(context.state.activeWorkspace._type === 'file') {
+            if (context.state.activeWorkspace._type === 'file') {
                 context.dispatch('refreshWorkspace')
             }
 
-            if(collectionItem._type === 'request_group') {
+            if (collectionItem._type === 'request_group') {
                 emitter.emit('request_group', 'renamed')
             }
 
             return result
         },
         async updateCollectionItem(context, { collectionId, name, parentId, headers, authentication }) {
-            if(context.state.activeWorkspace === null) {
+            if (context.state.activeWorkspace === null) {
                 throw new Error('activeWorkspace is null')
             }
 
             const collectionItem = context.state.collection.find(item => item._id === collectionId)
 
-            if(collectionItem === undefined) {
+            if (collectionItem === undefined) {
                 throw new Error('Collection item not found')
             }
 
             const propertiesToUpdate: Partial<CollectionItem> = {}
 
-            if(collectionItem.name !== name) {
+            if (collectionItem.name !== name) {
                 propertiesToUpdate.name = name
             }
 
-            if(collectionItem.parentId !== parentId) {
+            if (collectionItem.parentId !== parentId) {
                 propertiesToUpdate.parentId = parentId
             }
 
-            if(JSON.stringify(collectionItem.headers) !== JSON.stringify(headers)) {
+            if (JSON.stringify(collectionItem.headers) !== JSON.stringify(headers)) {
                 propertiesToUpdate.headers = headers
             }
 
-            if(JSON.stringify(collectionItem.authentication) !== JSON.stringify(authentication)) {
+            if (JSON.stringify(collectionItem.authentication) !== JSON.stringify(authentication)) {
                 propertiesToUpdate.authentication = authentication
             }
 
-            if(Object.keys(propertiesToUpdate).length === 0) {
+            if (Object.keys(propertiesToUpdate).length === 0) {
                 console.log('Skipping updateCollectionItem as there are no changes in properties')
                 return {
                     error: null
@@ -1984,33 +2030,33 @@ export const store = createStore<State>({
 
             console.log('updateCollectionItem: propertiesToUpdate', propertiesToUpdate)
 
-            if(context.state.activeWorkspace._type === 'file') {
+            if (context.state.activeWorkspace._type === 'file') {
                 // we split the operations, as the file workspace does not support updating name, parentId, headers & authentication together
 
-                if('name' in propertiesToUpdate) {
+                if ('name' in propertiesToUpdate) {
                     const result = await updateCollection(context.state.activeWorkspace._id, collectionId, {
                         name
                     })
 
-                    if(result.error) {
+                    if (result.error) {
                         emitter.emit('error', result.error)
                         return result
                     }
                 }
 
-                if('parentId' in propertiesToUpdate) {
+                if ('parentId' in propertiesToUpdate) {
                     await updateCollection(context.state.activeWorkspace._id, collectionId, {
                         parentId
                     })
                 }
 
-                if('headers' in propertiesToUpdate) {
+                if ('headers' in propertiesToUpdate) {
                     await updateCollection(context.state.activeWorkspace._id, collectionId, {
                         headers
                     })
                 }
 
-                if('authentication' in propertiesToUpdate) {
+                if ('authentication' in propertiesToUpdate) {
                     await updateCollection(context.state.activeWorkspace._id, collectionId, {
                         authentication
                     })
@@ -2019,8 +2065,8 @@ export const store = createStore<State>({
                 await updateCollection(context.state.activeWorkspace._id, collectionId, propertiesToUpdate)
             }
 
-            if('name' in propertiesToUpdate || 'parentId' in propertiesToUpdate) {
-                if(collectionItem._type === 'request_group') {
+            if ('name' in propertiesToUpdate || 'parentId' in propertiesToUpdate) {
+                if (collectionItem._type === 'request_group') {
                     emitter.emit('request_group', 'renamed')
                 }
 
@@ -2032,7 +2078,7 @@ export const store = createStore<State>({
 
                 // keep tab properties in tabs in sync with collectionItem
                 const tab = store.state.tabs.find(tab => tab._id === collectionItem._id)
-                if(tab) {
+                if (tab) {
                     Object.assign(tab, collectionItem)
                 }
             }
@@ -2043,17 +2089,17 @@ export const store = createStore<State>({
         },
         collapseFolders(context, collectionTree: CollectionItem[]) {
             collectionTree.forEach(collectionItem => {
-                if(collectionItem._type === 'request_group' && !collectionItem.collapsed) {
+                if (collectionItem._type === 'request_group' && !collectionItem.collapsed) {
                     collectionItem.collapsed = true
                     context.dispatch('saveCollectionItemCollapsedState', { _id: collectionItem._id, collapsed: true })
                 }
-                if(collectionItem.children) {
+                if (collectionItem.children) {
                     context.dispatch('collapseFolders', collectionItem.children)
                 }
             })
         },
         loadWorkspaceTabs(context) {
-            if(context.state.activeWorkspace === null) {
+            if (context.state.activeWorkspace === null) {
                 throw new Error('activeWorkspace is null')
             }
 

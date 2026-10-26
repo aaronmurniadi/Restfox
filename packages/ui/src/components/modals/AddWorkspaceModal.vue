@@ -6,7 +6,7 @@
                 <input type="text" class="full-width-input" v-model="workspaceName" :placeholder="!workspace ? 'New Workspace' : 'Workspace Name'" required spellcheck="false" v-focus>
             </label>
 
-            <template v-if="isFileWorkspaceSupported">
+            <template v-if="isFileWorkspaceSupported && !githubSession">
                 <div style="margin-top: 1rem">
                     <label>
                         <div style="font-weight: 500; margin-bottom: var(--label-margin-bottom)">Type</div>
@@ -27,6 +27,10 @@
                     <div style="margin-top: 0.5rem">Provide an empty folder or select a folder with an existing workspace</div>
                 </div>
             </template>
+
+            <p v-else-if="githubSession" style="margin-top: 1rem; opacity: 0.8; line-height: 1.4;">
+                Workspace will be stored under <span class="code">workspaces/</span> in your private GitHub repository ({{ githubSession.repo.fullName }}) and synced when you Sync.
+            </p>
 
             <template #footer>
                 <button class="button" v-if="!workspace">Create</button>
@@ -89,7 +93,10 @@ export default {
             set(value) {
                 this.$emit('update:showModal', value)
             }
-        }
+        },
+        githubSession() {
+            return this.$store.state.githubSession
+        },
     },
     watch: {
         workspace() {
@@ -106,7 +113,9 @@ export default {
         showModal() {
             if(this.showModal && this.workspace === undefined) {
                 this.workspaceName = 'New Workspace'
-                if(this.isFileWorkspaceSupported) {
+                if(this.githubSession) {
+                    this.workspaceType = 'github'
+                } else if(this.isFileWorkspaceSupported) {
                     this.workspaceType = 'file'
                 } else {
                     this.workspaceType = 'local'
@@ -123,7 +132,12 @@ export default {
     methods: {
         async createWorkspace() {
             if(!this.workspace) {
-                if(this.workspaceType === 'file') {
+                if(this.githubSession) {
+                    this.$store.dispatch('createWorkspace', {
+                        name: this.workspaceName,
+                        _type: 'github',
+                    })
+                } else if(this.workspaceType === 'file') {
                     this.$store.dispatch('createWorkspace', {
                         name: this.workspaceName,
                         _type: this.workspaceType,

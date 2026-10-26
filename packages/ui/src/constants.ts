@@ -36,6 +36,7 @@ export default {
         HIDE_PASSWORD_FIELDS: 'Restfox-HidePasswordFields',
         CUSTOM_RESPONSE_FORMATS: 'Restfox-CustomResponseFormats',
         RESPONSE_LINE_WRAPPING: 'Restfox-ResponseLineWrapping',
+        GITHUB_SYNC_INTERVAL_MINUTES: 'Restfox-GitHubSyncIntervalMinutes',
     },
     HOTKEYS: {
         SEND_REQUEST: 'Ctrl + Enter',

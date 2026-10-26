@@ -1,10 +1,32 @@
 version: '3.8'
 
+# GitHub-backed Restfox (OAuth API + static UI).
+# Copy packages/api/.env.example → packages/api/.env and set GitHub OAuth credentials.
+# For the legacy filesystem web-standalone image, use Dockerfile directly.
+
 services:
-  Restfox:
-    image: flawiddsouza/restfox:${RESTFOX_VERSION:-0.14.1}
-    container_name: Restfox
+  api:
+    build:
+      context: .
+      dockerfile: packages/api/Dockerfile
+    container_name: restfox-api
+    env_file:
+      - ./packages/api/.env
+    environment:
+      PORT: 4010
+      UI_ORIGIN: ${UI_ORIGIN:-http://localhost:8080}
+      OAUTH_CALLBACK_URL: ${OAUTH_CALLBACK_URL:-http://localhost:4010/auth/github/callback}
     ports:
-      - "${CUSTOM_PORT_ON_HOST:-4004}:4004"
-    volumes:
-      - ./data:/app/data   # mount your collections here; use this path in the "File Workspace" folder path field
+      - "${API_PORT:-4010}:4010"
+
+  ui:
+    build:
+      context: .
+      dockerfile: packages/ui/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:4010}
+    container_name: restfox-ui
+    ports:
+      - "${UI_PORT:-8080}:80"
+    depends_on:
+      - api

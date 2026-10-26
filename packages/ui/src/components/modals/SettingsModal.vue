@@ -19,37 +19,94 @@
 
             <div class="tab-content">
                 <div v-show="activeTab === 'user-interface'" class="tab-panel">
-                    <div style="display: flex; justify-content: space-between; gap: 1rem;">
+                    <div
+                        style="
+                            display: flex;
+                            justify-content: space-between;
+                            gap: 1rem;
+                        "
+                    >
                         <div>
-                            <div style="margin-bottom: var(--label-margin-bottom);">Sidebar Width</div>
-                            <input type="text" :value="sidebarWidth" class="full-width-input" placeholder="Default" disabled>
+                            <div
+                                style="
+                                    margin-bottom: var(--label-margin-bottom);
+                                "
+                            >
+                                Sidebar Width
+                            </div>
+                            <input
+                                type="text"
+                                :value="sidebarWidth"
+                                class="full-width-input"
+                                placeholder="Default"
+                                disabled
+                            />
                         </div>
                         <div>
-                            <div style="margin-bottom: var(--label-margin-bottom);">Request Panel Ratio</div>
-                            <input type="text" :value="requestPanelRatio" class="full-width-input" placeholder="Default" disabled>
+                            <div
+                                style="
+                                    margin-bottom: var(--label-margin-bottom);
+                                "
+                            >
+                                Request Panel Ratio
+                            </div>
+                            <input
+                                type="text"
+                                :value="requestPanelRatio"
+                                class="full-width-input"
+                                placeholder="Default"
+                                disabled
+                            />
                         </div>
                         <div>
-                            <div style="margin-bottom: var(--label-margin-bottom);">Response Panel Ratio</div>
-                            <input type="text" :value="responsePanelRatio" class="full-width-input" placeholder="Default" disabled>
+                            <div
+                                style="
+                                    margin-bottom: var(--label-margin-bottom);
+                                "
+                            >
+                                Response Panel Ratio
+                            </div>
+                            <input
+                                type="text"
+                                :value="responsePanelRatio"
+                                class="full-width-input"
+                                placeholder="Default"
+                                disabled
+                            />
                         </div>
                     </div>
 
                     <div style="padding-top: 1rem">
-                        <label style="display: flex;">
-                            <input type="checkbox" v-model="showTabs"> <div style="margin-left: 0.5rem;">Show Tabs</div>
+                        <label style="display: flex">
+                            <input type="checkbox" v-model="showTabs" />
+                            <div style="margin-left: 0.5rem">Show Tabs</div>
                         </label>
-                        <div style="margin-left: 1.3rem; margin-top: 0.3rem;">Un-ticking this will not show tabs when clicking on either request or folder.</div>
+                        <div style="margin-left: 1.3rem; margin-top: 0.3rem">
+                            Un-ticking this will not show tabs when clicking on
+                            either request or folder.
+                        </div>
                     </div>
 
                     <div style="padding-top: 1rem">
-                        <label style="display: flex;">
-                            <input type="checkbox" v-model="hidePasswordFields"> <div style="margin-left: 0.5rem;">Hide Password Fields</div>
+                        <label style="display: flex">
+                            <input
+                                type="checkbox"
+                                v-model="hidePasswordFields"
+                            />
+                            <div style="margin-left: 0.5rem">
+                                Hide Password Fields
+                            </div>
                         </label>
-                        <div style="margin-left: 1.3rem; margin-top: 0.3rem;">Ticking this will mask password input fields in the application for better security.</div>
+                        <div style="margin-left: 1.3rem; margin-top: 0.3rem">
+                            Ticking this will mask password input fields in the
+                            application for better security.
+                        </div>
                     </div>
 
                     <div style="padding-top: 1rem">
-                        <div style="margin-bottom: var(--label-margin-bottom);">Editor Indent Size</div>
+                        <div style="margin-bottom: var(--label-margin-bottom)">
+                            Editor Indent Size
+                        </div>
                         <select class="full-width-input" v-model="indentSize">
                             <option value="2">2</option>
                             <option value="4">4</option>
@@ -57,12 +114,22 @@
                     </div>
                 </div>
 
-                <div v-show="activeTab === 'request-response'" class="tab-panel">
+                <div
+                    v-show="activeTab === 'request-response'"
+                    class="tab-panel"
+                >
                     <div class="settings-section-heading">Requests</div>
 
                     <div>
-                        <div style="margin-bottom: var(--label-margin-bottom);">Global User Agent</div>
-                        <input type="text" v-model="globalUserAgent" class="full-width-input" placeholder="Enter user agent string">
+                        <div style="margin-bottom: var(--label-margin-bottom)">
+                            Global User Agent
+                        </div>
+                        <input
+                            type="text"
+                            v-model="globalUserAgent"
+                            class="full-width-input"
+                            placeholder="Enter user agent string"
+                        />
                         <button
                             class="button"
                             @click="getCurrentUserAgent"
@@ -73,38 +140,113 @@
                             Get Browser UserAgent
                         </button>
                         <div style="margin-top: 1rem">
-                            Note that the default user agent <span class="code">Restfox/{{ getVersion() }}</span> is used when no global user agent is set here or on request level.
+                            Note that the default user agent
+                            <span class="code">Restfox/{{ getVersion() }}</span>
+                            is used when no global user agent is set here or on
+                            request level.
                         </div>
                     </div>
 
                     <div style="padding-top: 1rem">
-                        <div style="margin-bottom: var(--label-margin-bottom);">Request Timeout (ms)</div>
-                        <input type="number" min="0" step="1000" v-model.number="requestTimeout" class="full-width-input" placeholder="0">
-                        <div style="margin-top: 0.3rem;">Abort a request if it does not complete within this many milliseconds. Set to <span class="code">0</span> for no timeout (unlimited). The timeout also cuts short a response that is still arriving, such as an event stream.</div>
+                        <div style="margin-bottom: var(--label-margin-bottom)">
+                            Request Timeout (ms)
+                        </div>
+                        <input
+                            type="number"
+                            min="0"
+                            step="1000"
+                            v-model.number="requestTimeout"
+                            class="full-width-input"
+                            placeholder="0"
+                        />
+                        <div style="margin-top: 0.3rem">
+                            Abort a request if it does not complete within this
+                            many milliseconds. Set to
+                            <span class="code">0</span> for no timeout
+                            (unlimited). The timeout also cuts short a response
+                            that is still arriving, such as an event stream.
+                        </div>
                     </div>
 
                     <template v-if="flags.isWebStandalone">
                         <div class="settings-section-heading">Certificates</div>
 
                         <div>
-                            <div style="margin-bottom: var(--label-margin-bottom);">CA Certificates</div>
-                            <div v-if="caCertificates" style="display: flex; align-items: center; column-gap: 0.5rem;">
+                            <div
+                                style="
+                                    margin-bottom: var(--label-margin-bottom);
+                                "
+                            >
+                                CA Certificates
+                            </div>
+                            <div
+                                v-if="caCertificates"
+                                style="
+                                    display: flex;
+                                    align-items: center;
+                                    column-gap: 0.5rem;
+                                "
+                            >
                                 <span>{{ caCertificates.fileName }}</span>
-                                <button class="button" @click="removeCACertificates">Remove</button>
+                                <button
+                                    class="button"
+                                    @click="removeCACertificates"
+                                >
+                                    Remove
+                                </button>
                             </div>
                             <template v-else>
-                                <button class="button" @click="$refs.caCertificatesFileInput.click()">Select File</button>
-                                <input type="file" ref="caCertificatesFileInput" accept=".pem,.crt,.cer,.der" @change="selectCACertificates" style="display: none;">
+                                <button
+                                    class="button"
+                                    @click="
+                                        $refs.caCertificatesFileInput.click()
+                                    "
+                                >
+                                    Select File
+                                </button>
+                                <input
+                                    type="file"
+                                    ref="caCertificatesFileInput"
+                                    accept=".pem,.crt,.cer,.der"
+                                    @change="selectCACertificates"
+                                    style="display: none"
+                                />
                             </template>
-                            <div v-if="caCertificatesError" style="margin-top: 0.3rem; color: var(--base-color-error);">{{ caCertificatesError }}</div>
-                            <div style="margin-top: 0.3rem;">Trusted in addition to the built-in certificates and those installed in your operating system, for servers behind a company proxy or signed by your own CA. PEM or DER, a PEM file can hold several certificates.</div>
+                            <div
+                                v-if="caCertificatesError"
+                                style="
+                                    margin-top: 0.3rem;
+                                    color: var(--base-color-error);
+                                "
+                            >
+                                {{ caCertificatesError }}
+                            </div>
+                            <div style="margin-top: 0.3rem">
+                                Trusted in addition to the built-in certificates
+                                and those installed in your operating system,
+                                for servers behind a company proxy or signed by
+                                your own CA. PEM or DER, a PEM file can hold
+                                several certificates.
+                            </div>
                         </div>
 
                         <div style="padding-top: 1rem">
-                            <label style="display: flex;">
-                                <input type="checkbox" v-model="disableSSLVerification"> <div style="margin-left: 0.5rem;">Disable SSL Verification</div>
+                            <label style="display: flex">
+                                <input
+                                    type="checkbox"
+                                    v-model="disableSSLVerification"
+                                />
+                                <div style="margin-left: 0.5rem">
+                                    Disable SSL Verification
+                                </div>
                             </label>
-                            <div style="margin-left: 1.3rem; margin-top: 0.3rem;">Ticking this accepts any certificate for all requests made from the application. Adding the server's certificate or its CA above is safer.</div>
+                            <div
+                                style="margin-left: 1.3rem; margin-top: 0.3rem"
+                            >
+                                Ticking this accepts any certificate for all
+                                requests made from the application. Adding the
+                                server's certificate or its CA above is safer.
+                            </div>
                         </div>
                     </template>
 
@@ -112,423 +254,863 @@
                         <div class="settings-section-heading">Connection</div>
 
                         <div>
-                            <div style="margin-bottom: var(--label-margin-bottom);">Proxy</div>
-                            <select class="full-width-input" v-model="proxy.mode">
+                            <div
+                                style="
+                                    margin-bottom: var(--label-margin-bottom);
+                                "
+                            >
+                                Proxy
+                            </div>
+                            <select
+                                class="full-width-input"
+                                v-model="proxy.mode"
+                            >
                                 <option value="system">System</option>
                                 <option value="off">Off</option>
                                 <option value="custom">Custom</option>
                             </select>
-                            <div style="margin-top: 0.3rem;" v-if="proxy.mode === 'system'">Uses the HTTP_PROXY, HTTPS_PROXY and NO_PROXY environment variables of the server running Restfox.</div>
-                            <div style="margin-top: 0.3rem;" v-if="proxy.mode === 'off'">Connects directly, even when the system has a proxy.</div>
+                            <div
+                                style="margin-top: 0.3rem"
+                                v-if="proxy.mode === 'system'"
+                            >
+                                Uses the HTTP_PROXY, HTTPS_PROXY and NO_PROXY
+                                environment variables of the server running
+                                Restfox.
+                            </div>
+                            <div
+                                style="margin-top: 0.3rem"
+                                v-if="proxy.mode === 'off'"
+                            >
+                                Connects directly, even when the system has a
+                                proxy.
+                            </div>
                             <template v-if="proxy.mode === 'custom'">
                                 <div style="padding-top: 0.5rem">
-                                    <div style="margin-bottom: var(--label-margin-bottom);">Proxy URL</div>
-                                    <input type="text" v-model.lazy.trim="proxy.url" class="full-width-input" placeholder="http://proxy.example.com:8080">
-                                    <div v-if="proxyUrlError" style="margin-top: 0.3rem; color: var(--base-color-error);">{{ proxyUrlError }}</div>
+                                    <div
+                                        style="
+                                            margin-bottom: var(
+                                                --label-margin-bottom
+                                            );
+                                        "
+                                    >
+                                        Proxy URL
+                                    </div>
+                                    <input
+                                        type="text"
+                                        v-model.lazy.trim="proxy.url"
+                                        class="full-width-input"
+                                        placeholder="http://proxy.example.com:8080"
+                                    />
+                                    <div
+                                        v-if="proxyUrlError"
+                                        style="
+                                            margin-top: 0.3rem;
+                                            color: var(--base-color-error);
+                                        "
+                                    >
+                                        {{ proxyUrlError }}
+                                    </div>
                                 </div>
-                                <div style="display: flex; gap: 1rem; padding-top: 0.5rem">
+                                <div
+                                    style="
+                                        display: flex;
+                                        gap: 1rem;
+                                        padding-top: 0.5rem;
+                                    "
+                                >
                                     <div style="flex: 1">
-                                        <div style="margin-bottom: var(--label-margin-bottom);">Username</div>
-                                        <input type="text" v-model.lazy="proxy.username" class="full-width-input" placeholder="Optional">
+                                        <div
+                                            style="
+                                                margin-bottom: var(
+                                                    --label-margin-bottom
+                                                );
+                                            "
+                                        >
+                                            Username
+                                        </div>
+                                        <input
+                                            type="text"
+                                            v-model.lazy="proxy.username"
+                                            class="full-width-input"
+                                            placeholder="Optional"
+                                        />
                                     </div>
                                     <div style="flex: 1">
-                                        <div style="margin-bottom: var(--label-margin-bottom);">Password</div>
-                                        <input type="password" v-model.lazy="proxy.password" class="full-width-input" placeholder="Optional">
+                                        <div
+                                            style="
+                                                margin-bottom: var(
+                                                    --label-margin-bottom
+                                                );
+                                            "
+                                        >
+                                            Password
+                                        </div>
+                                        <input
+                                            type="password"
+                                            v-model.lazy="proxy.password"
+                                            class="full-width-input"
+                                            placeholder="Optional"
+                                        />
                                     </div>
                                 </div>
                                 <div style="padding-top: 0.5rem">
-                                    <div style="margin-bottom: var(--label-margin-bottom);">Bypass Proxy For</div>
-                                    <input type="text" v-model.lazy.trim="proxy.bypass" class="full-width-input" placeholder="internal.example.com, 10.0.0.5:8080">
-                                    <div style="margin-top: 0.3rem;">Hosts to connect to directly, separated by commas, such as <span class="code">internal.example.com</span> or <span class="code">10.0.0.0/8</span>. Each covers its subdomains too, and <span class="code">*</span> covers every host.</div>
+                                    <div
+                                        style="
+                                            margin-bottom: var(
+                                                --label-margin-bottom
+                                            );
+                                        "
+                                    >
+                                        Bypass Proxy For
+                                    </div>
+                                    <input
+                                        type="text"
+                                        v-model.lazy.trim="proxy.bypass"
+                                        class="full-width-input"
+                                        placeholder="internal.example.com, 10.0.0.5:8080"
+                                    />
+                                    <div style="margin-top: 0.3rem">
+                                        Hosts to connect to directly, separated
+                                        by commas, such as
+                                        <span class="code"
+                                            >internal.example.com</span
+                                        >
+                                        or <span class="code">10.0.0.0/8</span>.
+                                        Each covers its subdomains too, and
+                                        <span class="code">*</span> covers every
+                                        host.
+                                    </div>
                                 </div>
                             </template>
-                            <div style="margin-top: 0.3rem;">Applies to requests, scripts, gRPC, WebSocket and Socket.IO. localhost always connects directly.</div>
+                            <div style="margin-top: 0.3rem">
+                                Applies to requests, scripts, gRPC, WebSocket
+                                and Socket.IO. localhost always connects
+                                directly.
+                            </div>
                         </div>
-
                     </template>
 
                     <div class="settings-section-heading">Responses</div>
 
                     <div>
-                        <div style="margin-bottom: var(--label-margin-bottom);">Custom Response Formats</div>
-                        <div style="margin-bottom: 0.5rem;">Add additional content types to be recognized as supported formats in the response panel (to bypass the binary response warning):</div>
-                        <div style="display: flex; margin-bottom: 0.5rem;">
+                        <div style="margin-bottom: var(--label-margin-bottom)">
+                            Custom Response Formats
+                        </div>
+                        <div style="margin-bottom: 0.5rem">
+                            Add additional content types to be recognized as
+                            supported formats in the response panel (to bypass
+                            the binary response warning):
+                        </div>
+                        <div style="display: flex; margin-bottom: 0.5rem">
                             <input
                                 type="text"
                                 v-model="newCustomFormat"
                                 class="full-width-input"
                                 placeholder="e.g., application/protobuf"
                                 @keyup.enter="addCustomFormat"
-                                style="margin-right: 0.5rem;"
+                                style="margin-right: 0.5rem"
                             />
-                            <button class="button" @click="addCustomFormat" :disabled="!newCustomFormat.trim()">Add</button>
+                            <button
+                                class="button"
+                                @click="addCustomFormat"
+                                :disabled="!newCustomFormat.trim()"
+                            >
+                                Add
+                            </button>
                         </div>
-                        <div v-if="customResponseFormats.length > 0" style="border: 1px solid var(--default-border-color); border-radius: var(--default-border-radius); padding: 0.5rem; display: flex; row-gap: 0.25rem; flex-direction: column;">
-                            <div v-for="(format, index) in customResponseFormats" :key="index" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div
+                            v-if="customResponseFormats.length > 0"
+                            style="
+                                border: 1px solid var(--default-border-color);
+                                border-radius: var(--default-border-radius);
+                                padding: 0.5rem;
+                                display: flex;
+                                row-gap: 0.25rem;
+                                flex-direction: column;
+                            "
+                        >
+                            <div
+                                v-for="(format, index) in customResponseFormats"
+                                :key="index"
+                                style="
+                                    display: flex;
+                                    justify-content: space-between;
+                                    align-items: center;
+                                "
+                            >
                                 <span>{{ format }}</span>
-                                <button class="button" @click="removeCustomFormat(index)" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">Remove</button>
+                                <button
+                                    class="button"
+                                    @click="removeCustomFormat(index)"
+                                    style="
+                                        padding: 0.2rem 0.5rem;
+                                        font-size: 0.8rem;
+                                    "
+                                >
+                                    Remove
+                                </button>
                             </div>
                         </div>
-                        <div v-else style="color: var(--text-color); opacity: 0.7; font-style: italic;">No custom formats added</div>
+                        <div
+                            v-else
+                            style="
+                                color: var(--text-color);
+                                opacity: 0.7;
+                                font-style: italic;
+                            "
+                        >
+                            No custom formats added
+                        </div>
+                    </div>
+                </div>
+
+                <div
+                    v-show="activeTab === 'account'"
+                    class="tab-panel"
+                    v-if="githubSession"
+                >
+                    <div class="settings-section-heading">GitHub</div>
+                    <div>
+                        Signed in as
+                        <strong>{{ githubSession.user.login }}</strong>
+                        <span v-if="githubSession.user.name">
+                            ({{ githubSession.user.name }})</span
+                        >
+                    </div>
+                    <div style="margin-top: 0.75rem">
+                        Linked repository (read-only):
+                        <a
+                            :href="githubSession.repo.htmlUrl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            >{{ githubSession.repo.fullName }}</a
+                        >
+                    </div>
+                    <div style="padding-top: 1rem">
+                        <div style="margin-bottom: var(--label-margin-bottom)">
+                            Automatic sync interval (minutes)
+                        </div>
+                        <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            v-model.number="syncIntervalMinutes"
+                            class="full-width-input"
+                            placeholder="0"
+                        />
+                        <div style="margin-top: 0.3rem">
+                            When greater than zero, Restfox commits and pushes
+                            local changes on this interval. Set to
+                            <span class="code">0</span> to sync only manually.
+                        </div>
+                    </div>
+                    <div
+                        style="
+                            padding-top: 1.25rem;
+                            display: flex;
+                            gap: 0.75rem;
+                            flex-wrap: wrap;
+                        "
+                    >
+                        <button
+                            class="button"
+                            type="button"
+                            @click="signOut(false)"
+                        >
+                            Sign out
+                        </button>
+                        <button
+                            class="button"
+                            type="button"
+                            @click="signOut(true)"
+                        >
+                            Sign out and clear local cache
+                        </button>
+                    </div>
+                    <div style="margin-top: 0.5rem; opacity: 0.75">
+                        Sign out does not delete your private GitHub repository.
                     </div>
                 </div>
 
                 <div v-show="activeTab === 'advanced'" class="tab-panel">
                     <div>
-                        <label style="display: flex;">
-                            <input type="checkbox" v-model="disablePageViewAnalyticsTracking"> <div style="margin-left: 0.5rem;">Disable Page View Analytics Tracking</div>
+                        <label style="display: flex">
+                            <input
+                                type="checkbox"
+                                v-model="disablePageViewAnalyticsTracking"
+                            />
+                            <div style="margin-left: 0.5rem">
+                                Disable Page View Analytics Tracking
+                            </div>
                         </label>
-                        <div style="margin-left: 1.3rem; margin-top: 0.3rem;">Ticking this will prevent the application from sending page view event to the <a href="https://umami.is" target="_blank">analytics server</a> when the application is opened. Please note that we do not track any other actions or the requests you make in the application. Click <a href="https://umami.is/docs/tracker-functions#:~:text=Pageviews,Website%20ID%20(required)" target="_blank">here</a> to see what data gets collected.</div>
+                        <div style="margin-left: 1.3rem; margin-top: 0.3rem">
+                            Ticking this will prevent the application from
+                            sending page view event to the
+                            <a href="https://umami.is" target="_blank"
+                                >analytics server</a
+                            >
+                            when the application is opened. Please note that we
+                            do not track any other actions or the requests you
+                            make in the application. Click
+                            <a
+                                href="https://umami.is/docs/tracker-functions#:~:text=Pageviews,Website%20ID%20(required)"
+                                target="_blank"
+                                >here</a
+                            >
+                            to see what data gets collected.
+                        </div>
                     </div>
 
                     <div style="padding-top: 1rem">
-                        <label style="display: flex;">
-                            <input type="checkbox" v-model="disableIframeSandbox"> <div style="margin-left: 0.5rem;">Remove Iframe Sandbox Restriction</div>
+                        <label style="display: flex">
+                            <input
+                                type="checkbox"
+                                v-model="disableIframeSandbox"
+                            />
+                            <div style="margin-left: 0.5rem">
+                                Remove Iframe Sandbox Restriction
+                            </div>
                         </label>
-                        <div style="margin-left: 1.3rem; margin-top: 0.3rem;">Ticking this will remove iframe sandbox restrictions. See <a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Element/iframe#sandbox" target="_blank">this link</a> for more info.</div>
+                        <div style="margin-left: 1.3rem; margin-top: 0.3rem">
+                            Ticking this will remove iframe sandbox
+                            restrictions. See
+                            <a
+                                href="https://developer.mozilla.org/en-US/docs/Web/HTML/Element/iframe#sandbox"
+                                target="_blank"
+                                >this link</a
+                            >
+                            for more info.
+                        </div>
                     </div>
-
                 </div>
             </div>
 
-            <div style="padding-top: 2rem; font-style: italic; text-align: center;">Changes you make here will be auto saved</div>
+            <div
+                style="
+                    padding-top: 2rem;
+                    font-style: italic;
+                    text-align: center;
+                "
+            >
+                Changes you make here will be auto saved
+            </div>
             <template #footer>
-                <button class="button" @click="resetSettings('widths')">Reset Widths</button>
-                <button class="button" @click="resetSettings()" style="margin-left: 1rem">Reset All</button>
-                <button class="button" @click="showModalComp = false" style="margin-left: 1rem">Done</button>
+                <button class="button" @click="resetSettings('widths')">
+                    Reset Widths
+                </button>
+                <button
+                    class="button"
+                    @click="resetSettings()"
+                    style="margin-left: 1rem"
+                >
+                    Reset All
+                </button>
+                <button
+                    class="button"
+                    @click="showModalComp = false"
+                    style="margin-left: 1rem"
+                >
+                    Done
+                </button>
             </template>
         </modal>
     </div>
 </template>
 
 <script>
-import Modal from '@/components/Modal.vue'
-import { emitter } from '@/event-bus'
-import constants from '../../constants'
-import { getSavedRequestTimeout, getSavedCACertificates, saveCACertificates, caCertificatesFileToPEM, registerCACertificates, getVersion, DEFAULT_PROXY_SETTINGS, getSavedProxySettings, getProxyUrlError } from '@/helpers'
+import Modal from "@/components/Modal.vue";
+import { emitter } from "@/event-bus";
+import constants from "../../constants";
+import {
+    getSavedRequestTimeout,
+    getSavedCACertificates,
+    saveCACertificates,
+    caCertificatesFileToPEM,
+    registerCACertificates,
+    getVersion,
+    DEFAULT_PROXY_SETTINGS,
+    getSavedProxySettings,
+    getProxyUrlError,
+} from "@/helpers";
 
 export default {
     props: {
-        showModal: Boolean
+        showModal: Boolean,
     },
     components: {
-        Modal
+        Modal,
     },
     data() {
         return {
-            activeTab: 'user-interface',
-            tabs: [
-                { key: 'user-interface', label: 'User Interface' },
-                { key: 'request-response', label: 'Request / Response' },
-                { key: 'advanced', label: 'Advanced' }
-            ],
+            activeTab: "user-interface",
             sidebarWidth: null,
             requestPanelRatio: null,
             responsePanelRatio: null,
             disablePageViewAnalyticsTracking: false,
             disableSSLVerification: false,
             caCertificates: null,
-            caCertificatesError: '',
+            caCertificatesError: "",
             proxy: { ...DEFAULT_PROXY_SETTINGS },
             requestTimeout: 0,
             disableIframeSandbox: false,
-            globalUserAgent: '',
+            globalUserAgent: "",
             indentSize: constants.EDITOR_CONFIG.indent_size,
             showTabs: false,
             hidePasswordFields: false,
             customResponseFormats: [],
-            newCustomFormat: '',
-        }
+            newCustomFormat: "",
+            syncIntervalMinutes: 0,
+        };
     },
     computed: {
         showModalComp: {
             get() {
-                return this.showModal
+                return this.showModal;
             },
             set(value) {
-                this.$emit('update:showModal', value)
-            }
+                this.$emit("update:showModal", value);
+            },
         },
         flags() {
-            return this.$store.state.flags
+            return this.$store.state.flags;
+        },
+        githubSession() {
+            return this.$store.state.githubSession;
+        },
+        tabs() {
+            const tabs = [
+                { key: "user-interface", label: "User Interface" },
+                { key: "request-response", label: "Request / Response" },
+            ];
+            if (this.githubSession) {
+                tabs.push({ key: "account", label: "Account" });
+            }
+            tabs.push({ key: "advanced", label: "Advanced" });
+            return tabs;
         },
         proxyUrlError() {
-            return this.proxy.mode === 'custom' ? getProxyUrlError(this.proxy.url) : null
+            return this.proxy.mode === "custom"
+                ? getProxyUrlError(this.proxy.url)
+                : null;
         },
         gitTag() {
-            return import.meta.env.VITE_GIT_TAG
+            return import.meta.env.VITE_GIT_TAG;
         },
         gitCommitHash() {
-            return import.meta.env.VITE_GIT_COMMIT_HASH
+            return import.meta.env.VITE_GIT_COMMIT_HASH;
         },
     },
     watch: {
         showModal() {
-            this.fetchSavedSettings()
+            this.fetchSavedSettings();
+        },
+        syncIntervalMinutes() {
+            if (!this.githubSession || !this.showModalComp) {
+                return;
+            }
+            const value =
+                Number.isFinite(this.syncIntervalMinutes) &&
+                this.syncIntervalMinutes > 0
+                    ? Math.floor(this.syncIntervalMinutes)
+                    : 0;
+            import("@/utils/github-session").then(
+                ({ setSyncIntervalMinutes }) => {
+                    setSyncIntervalMinutes(value);
+                },
+            );
         },
         disablePageViewAnalyticsTracking() {
-            localStorage.setItem(constants.LOCAL_STORAGE_KEY.DISABLE_PAGE_VIEW_ANALYTICS_TRACKING, this.disablePageViewAnalyticsTracking)
+            localStorage.setItem(
+                constants.LOCAL_STORAGE_KEY
+                    .DISABLE_PAGE_VIEW_ANALYTICS_TRACKING,
+                this.disablePageViewAnalyticsTracking,
+            );
         },
         disableSSLVerification() {
-            localStorage.setItem(constants.LOCAL_STORAGE_KEY.DISABLE_SSL_VERIFICATION, this.disableSSLVerification)
-            this.$store.state.flags.disableSSLVerification = this.disableSSLVerification
+            localStorage.setItem(
+                constants.LOCAL_STORAGE_KEY.DISABLE_SSL_VERIFICATION,
+                this.disableSSLVerification,
+            );
+            this.$store.state.flags.disableSSLVerification =
+                this.disableSSLVerification;
         },
         proxy: {
             handler() {
                 // opening the modal fills in the saved value, which is not a change. Custom without a usable URL is not saved,
                 // the previous choice keeps working
-                if(JSON.stringify(this.proxy) === JSON.stringify(getSavedProxySettings() ?? DEFAULT_PROXY_SETTINGS) || this.proxyUrlError) {
-                    return
+                if (
+                    JSON.stringify(this.proxy) ===
+                        JSON.stringify(
+                            getSavedProxySettings() ?? DEFAULT_PROXY_SETTINGS,
+                        ) ||
+                    this.proxyUrlError
+                ) {
+                    return;
                 }
 
-                localStorage.setItem(constants.LOCAL_STORAGE_KEY.PROXY, JSON.stringify(this.proxy))
-                this.$store.state.flags.proxy = { ...this.proxy }
+                localStorage.setItem(
+                    constants.LOCAL_STORAGE_KEY.PROXY,
+                    JSON.stringify(this.proxy),
+                );
+                this.$store.state.flags.proxy = { ...this.proxy };
             },
-            deep: true
+            deep: true,
         },
         requestTimeout() {
-            const value = Number.isFinite(this.requestTimeout) && this.requestTimeout > 0 ? Math.floor(this.requestTimeout) : 0
-            localStorage.setItem(constants.LOCAL_STORAGE_KEY.REQUEST_TIMEOUT, value.toString())
-            this.$store.state.flags.requestTimeout = value
+            const value =
+                Number.isFinite(this.requestTimeout) && this.requestTimeout > 0
+                    ? Math.floor(this.requestTimeout)
+                    : 0;
+            localStorage.setItem(
+                constants.LOCAL_STORAGE_KEY.REQUEST_TIMEOUT,
+                value.toString(),
+            );
+            this.$store.state.flags.requestTimeout = value;
         },
         disableIframeSandbox() {
-            localStorage.setItem(constants.LOCAL_STORAGE_KEY.DISABLE_IFRAME_SANDBOX, this.disableIframeSandbox)
-            this.$store.state.flags.disableIframeSandbox = this.disableIframeSandbox
+            localStorage.setItem(
+                constants.LOCAL_STORAGE_KEY.DISABLE_IFRAME_SANDBOX,
+                this.disableIframeSandbox,
+            );
+            this.$store.state.flags.disableIframeSandbox =
+                this.disableIframeSandbox;
         },
         globalUserAgent() {
-            localStorage.setItem(constants.LOCAL_STORAGE_KEY.GLOBAL_USER_AGENT, this.globalUserAgent)
+            localStorage.setItem(
+                constants.LOCAL_STORAGE_KEY.GLOBAL_USER_AGENT,
+                this.globalUserAgent,
+            );
         },
         indentSize() {
-            localStorage.setItem(constants.LOCAL_STORAGE_KEY.INDENT_SIZE, this.indentSize)
-            emitter.emit('editor_indent_size')
+            localStorage.setItem(
+                constants.LOCAL_STORAGE_KEY.INDENT_SIZE,
+                this.indentSize,
+            );
+            emitter.emit("editor_indent_size");
         },
         showTabs() {
-            localStorage.setItem(constants.LOCAL_STORAGE_KEY.SHOW_TABS, this.showTabs)
-            this.$store.state.flags.showTabs = this.showTabs
+            localStorage.setItem(
+                constants.LOCAL_STORAGE_KEY.SHOW_TABS,
+                this.showTabs,
+            );
+            this.$store.state.flags.showTabs = this.showTabs;
         },
         hidePasswordFields() {
-            localStorage.setItem(constants.LOCAL_STORAGE_KEY.HIDE_PASSWORD_FIELDS, this.hidePasswordFields)
-            this.$store.state.flags.hidePasswordFields = this.hidePasswordFields
+            localStorage.setItem(
+                constants.LOCAL_STORAGE_KEY.HIDE_PASSWORD_FIELDS,
+                this.hidePasswordFields,
+            );
+            this.$store.state.flags.hidePasswordFields =
+                this.hidePasswordFields;
         },
         customResponseFormats: {
             handler(newFormats) {
-                localStorage.setItem(constants.LOCAL_STORAGE_KEY.CUSTOM_RESPONSE_FORMATS, JSON.stringify(newFormats))
-                this.$store.state.settings.customResponseFormats = newFormats
+                localStorage.setItem(
+                    constants.LOCAL_STORAGE_KEY.CUSTOM_RESPONSE_FORMATS,
+                    JSON.stringify(newFormats),
+                );
+                this.$store.state.settings.customResponseFormats = newFormats;
             },
-            deep: true
+            deep: true,
         },
     },
     methods: {
         getVersion,
         getStoredJSON(key, defaultValue = []) {
             try {
-                const stored = localStorage.getItem(key)
-                return stored ? JSON.parse(stored) : defaultValue
+                const stored = localStorage.getItem(key);
+                return stored ? JSON.parse(stored) : defaultValue;
             } catch (error) {
-                console.error(`Error parsing stored JSON for key ${key}:`, error)
-                return defaultValue
+                console.error(
+                    `Error parsing stored JSON for key ${key}:`,
+                    error,
+                );
+                return defaultValue;
             }
         },
         addCustomFormat() {
-            const format = this.newCustomFormat.trim()
+            const format = this.newCustomFormat.trim();
             if (format && !this.customResponseFormats.includes(format)) {
-                this.customResponseFormats.push(format)
-                this.newCustomFormat = ''
+                this.customResponseFormats.push(format);
+                this.newCustomFormat = "";
             }
         },
         removeCustomFormat(index) {
-            this.customResponseFormats.splice(index, 1)
+            this.customResponseFormats.splice(index, 1);
         },
         async selectCACertificates(event) {
-            const file = event.target.files[0]
+            const file = event.target.files[0];
             // picking the same file again after an error fires change again
-            event.target.value = ''
+            event.target.value = "";
 
-            if(!file) {
-                return
+            if (!file) {
+                return;
             }
 
-            this.caCertificatesError = ''
+            this.caCertificatesError = "";
 
             try {
-                const certificates = await caCertificatesFileToPEM(file)
+                const certificates = await caCertificatesFileToPEM(file);
                 // the transport checks the file, so one it cannot use is never saved
-                await registerCACertificates(certificates)
-                await this.setCACertificates({ fileName: file.name, certificates })
-            } catch(e) {
-                this.caCertificatesError = `${file.name}: ${e.message}`
+                await registerCACertificates(certificates);
+                await this.setCACertificates({
+                    fileName: file.name,
+                    certificates,
+                });
+            } catch (e) {
+                this.caCertificatesError = `${file.name}: ${e.message}`;
             }
         },
         async removeCACertificates() {
-            this.caCertificatesError = ''
-            await this.setCACertificates(null)
+            this.caCertificatesError = "";
+            await this.setCACertificates(null);
         },
         async setCACertificates(caCertificates) {
-            await saveCACertificates(caCertificates)
-            this.caCertificates = caCertificates
-            this.$store.state.flags.caCertificates = caCertificates
+            await saveCACertificates(caCertificates);
+            this.caCertificates = caCertificates;
+            this.$store.state.flags.caCertificates = caCertificates;
         },
         resetWidths() {
-            localStorage.removeItem(constants.LOCAL_STORAGE_KEY.SIDEBAR_WIDTH)
-            localStorage.removeItem(constants.LOCAL_STORAGE_KEY.REQUEST_PANEL_RATIO)
-            localStorage.removeItem(constants.LOCAL_STORAGE_KEY.RESPONSE_PANEL_RATIO)
+            localStorage.removeItem(constants.LOCAL_STORAGE_KEY.SIDEBAR_WIDTH);
+            localStorage.removeItem(
+                constants.LOCAL_STORAGE_KEY.REQUEST_PANEL_RATIO,
+            );
+            localStorage.removeItem(
+                constants.LOCAL_STORAGE_KEY.RESPONSE_PANEL_RATIO,
+            );
         },
         resetLayout() {
-            localStorage.removeItem(constants.LOCAL_STORAGE_KEY.REQUEST_RESPONSE_LAYOUT)
+            localStorage.removeItem(
+                constants.LOCAL_STORAGE_KEY.REQUEST_RESPONSE_LAYOUT,
+            );
         },
         resetDisablePageViewAnalyticsTracking() {
-            localStorage.removeItem(constants.LOCAL_STORAGE_KEY.DISABLE_PAGE_VIEW_ANALYTICS_TRACKING)
+            localStorage.removeItem(
+                constants.LOCAL_STORAGE_KEY
+                    .DISABLE_PAGE_VIEW_ANALYTICS_TRACKING,
+            );
         },
         resetDisableSSLVerification() {
-            localStorage.removeItem(constants.LOCAL_STORAGE_KEY.DISABLE_SSL_VERIFICATION)
+            localStorage.removeItem(
+                constants.LOCAL_STORAGE_KEY.DISABLE_SSL_VERIFICATION,
+            );
         },
         async resetCACertificates() {
-            await saveCACertificates(null)
+            await saveCACertificates(null);
         },
         resetProxy() {
-            localStorage.removeItem(constants.LOCAL_STORAGE_KEY.PROXY)
+            localStorage.removeItem(constants.LOCAL_STORAGE_KEY.PROXY);
         },
         resetRequestTimeout() {
-            localStorage.removeItem(constants.LOCAL_STORAGE_KEY.REQUEST_TIMEOUT)
-            this.requestTimeout = 0
+            localStorage.removeItem(
+                constants.LOCAL_STORAGE_KEY.REQUEST_TIMEOUT,
+            );
+            this.requestTimeout = 0;
         },
         resetDisableIframeSandbox() {
-            localStorage.removeItem(constants.LOCAL_STORAGE_KEY.DISABLE_IFRAME_SANDBOX)
+            localStorage.removeItem(
+                constants.LOCAL_STORAGE_KEY.DISABLE_IFRAME_SANDBOX,
+            );
         },
         resetGlobalUserAgent() {
-            localStorage.removeItem(constants.LOCAL_STORAGE_KEY.GLOBAL_USER_AGENT)
-            this.globalUserAgent = ''
+            localStorage.removeItem(
+                constants.LOCAL_STORAGE_KEY.GLOBAL_USER_AGENT,
+            );
+            this.globalUserAgent = "";
         },
         resetIndentSize() {
-            localStorage.removeItem(constants.LOCAL_STORAGE_KEY.INDENT_SIZE)
-            this.indentSize = constants.EDITOR_CONFIG.indent_size
+            localStorage.removeItem(constants.LOCAL_STORAGE_KEY.INDENT_SIZE);
+            this.indentSize = constants.EDITOR_CONFIG.indent_size;
         },
         resetShowTabs() {
-            localStorage.removeItem(constants.LOCAL_STORAGE_KEY.SHOW_TABS)
-            this.showTabs = true
+            localStorage.removeItem(constants.LOCAL_STORAGE_KEY.SHOW_TABS);
+            this.showTabs = true;
         },
         resetHidePasswordFields() {
-            localStorage.removeItem(constants.LOCAL_STORAGE_KEY.HIDE_PASSWORD_FIELDS)
-            this.hidePasswordFields = false
+            localStorage.removeItem(
+                constants.LOCAL_STORAGE_KEY.HIDE_PASSWORD_FIELDS,
+            );
+            this.hidePasswordFields = false;
         },
         resetCustomResponseFormats() {
-            localStorage.removeItem(constants.LOCAL_STORAGE_KEY.CUSTOM_RESPONSE_FORMATS)
-            this.customResponseFormats = []
+            localStorage.removeItem(
+                constants.LOCAL_STORAGE_KEY.CUSTOM_RESPONSE_FORMATS,
+            );
+            this.customResponseFormats = [];
         },
         async resetSettings(target = null) {
-            if(target) {
-                if(target === 'widths') {
-                    this.resetWidths()
+            if (target) {
+                if (target === "widths") {
+                    this.resetWidths();
                 }
 
-                document.location.reload()
+                document.location.reload();
 
-                return
+                return;
             }
 
-            this.resetWidths()
-            this.resetLayout()
-            this.resetDisablePageViewAnalyticsTracking()
-            this.resetDisableSSLVerification()
-            await this.resetCACertificates()
-            this.resetProxy()
-            this.resetRequestTimeout()
-            this.resetDisableIframeSandbox()
-            this.resetGlobalUserAgent()
-            this.resetIndentSize()
-            this.resetShowTabs()
-            this.resetHidePasswordFields()
-            this.resetCustomResponseFormats()
+            this.resetWidths();
+            this.resetLayout();
+            this.resetDisablePageViewAnalyticsTracking();
+            this.resetDisableSSLVerification();
+            await this.resetCACertificates();
+            this.resetProxy();
+            this.resetRequestTimeout();
+            this.resetDisableIframeSandbox();
+            this.resetGlobalUserAgent();
+            this.resetIndentSize();
+            this.resetShowTabs();
+            this.resetHidePasswordFields();
+            this.resetCustomResponseFormats();
 
-            document.location.reload()
+            document.location.reload();
         },
         fetchSavedSettings() {
-            const savedSidebarWidth = localStorage.getItem(constants.LOCAL_STORAGE_KEY.SIDEBAR_WIDTH)
-            const savedRequestPanelRatio = localStorage.getItem(constants.LOCAL_STORAGE_KEY.REQUEST_PANEL_RATIO)
-            const savedResponsePanelRatio = localStorage.getItem(constants.LOCAL_STORAGE_KEY.RESPONSE_PANEL_RATIO)
-            const savedDisablePageViewAnalyticsTracking = localStorage.getItem(constants.LOCAL_STORAGE_KEY.DISABLE_PAGE_VIEW_ANALYTICS_TRACKING)
-            const savedDisableSSLVerification = localStorage.getItem(constants.LOCAL_STORAGE_KEY.DISABLE_SSL_VERIFICATION)
-            const savedDisableIframeSandbox = localStorage.getItem(constants.LOCAL_STORAGE_KEY.DISABLE_IFRAME_SANDBOX)
-            const savedGlobalUserAgent = localStorage.getItem(constants.LOCAL_STORAGE_KEY.GLOBAL_USER_AGENT)
-            const savedIndentSize = localStorage.getItem(constants.LOCAL_STORAGE_KEY.INDENT_SIZE) || 4
-            const savedShowTabs = localStorage.getItem(constants.LOCAL_STORAGE_KEY.SHOW_TABS) || true
-            const savedHidePasswordFields = localStorage.getItem(constants.LOCAL_STORAGE_KEY.HIDE_PASSWORD_FIELDS) || false
+            const savedSidebarWidth = localStorage.getItem(
+                constants.LOCAL_STORAGE_KEY.SIDEBAR_WIDTH,
+            );
+            const savedRequestPanelRatio = localStorage.getItem(
+                constants.LOCAL_STORAGE_KEY.REQUEST_PANEL_RATIO,
+            );
+            const savedResponsePanelRatio = localStorage.getItem(
+                constants.LOCAL_STORAGE_KEY.RESPONSE_PANEL_RATIO,
+            );
+            const savedDisablePageViewAnalyticsTracking = localStorage.getItem(
+                constants.LOCAL_STORAGE_KEY
+                    .DISABLE_PAGE_VIEW_ANALYTICS_TRACKING,
+            );
+            const savedDisableSSLVerification = localStorage.getItem(
+                constants.LOCAL_STORAGE_KEY.DISABLE_SSL_VERIFICATION,
+            );
+            const savedDisableIframeSandbox = localStorage.getItem(
+                constants.LOCAL_STORAGE_KEY.DISABLE_IFRAME_SANDBOX,
+            );
+            const savedGlobalUserAgent = localStorage.getItem(
+                constants.LOCAL_STORAGE_KEY.GLOBAL_USER_AGENT,
+            );
+            const savedIndentSize =
+                localStorage.getItem(constants.LOCAL_STORAGE_KEY.INDENT_SIZE) ||
+                4;
+            const savedShowTabs =
+                localStorage.getItem(constants.LOCAL_STORAGE_KEY.SHOW_TABS) ||
+                true;
+            const savedHidePasswordFields =
+                localStorage.getItem(
+                    constants.LOCAL_STORAGE_KEY.HIDE_PASSWORD_FIELDS,
+                ) || false;
 
-            if(savedSidebarWidth) {
-                this.sidebarWidth = savedSidebarWidth
+            if (savedSidebarWidth) {
+                this.sidebarWidth = savedSidebarWidth;
             }
 
-            if(savedRequestPanelRatio) {
-                this.requestPanelRatio = savedRequestPanelRatio
+            if (savedRequestPanelRatio) {
+                this.requestPanelRatio = savedRequestPanelRatio;
             }
 
-            if(savedResponsePanelRatio) {
-                this.responsePanelRatio = savedResponsePanelRatio
+            if (savedResponsePanelRatio) {
+                this.responsePanelRatio = savedResponsePanelRatio;
             }
 
-            if(savedDisablePageViewAnalyticsTracking) {
+            if (savedDisablePageViewAnalyticsTracking) {
                 try {
-                    this.disablePageViewAnalyticsTracking = JSON.parse(savedDisablePageViewAnalyticsTracking)
+                    this.disablePageViewAnalyticsTracking = JSON.parse(
+                        savedDisablePageViewAnalyticsTracking,
+                    );
                 } catch (e) {
-                    this.disablePageViewAnalyticsTracking = false
+                    this.disablePageViewAnalyticsTracking = false;
                 }
             }
 
-            if(savedDisableSSLVerification) {
+            if (savedDisableSSLVerification) {
                 try {
-                    this.disableSSLVerification = JSON.parse(savedDisableSSLVerification)
+                    this.disableSSLVerification = JSON.parse(
+                        savedDisableSSLVerification,
+                    );
                 } catch (e) {
-                    this.disableSSLVerification = false
+                    this.disableSSLVerification = false;
                 }
             }
 
-            this.requestTimeout = getSavedRequestTimeout()
-            this.proxy = getSavedProxySettings() ?? { ...DEFAULT_PROXY_SETTINGS }
-            this.caCertificatesError = ''
-            if(this.flags.isWebStandalone) {
-                getSavedCACertificates().then(caCertificates => {
-                    this.caCertificates = caCertificates
-                }).catch(error => {
-                    this.caCertificatesError = `The saved file could not be read: ${error.message}`
-                })
+            this.requestTimeout = getSavedRequestTimeout();
+            this.proxy = getSavedProxySettings() ?? {
+                ...DEFAULT_PROXY_SETTINGS,
+            };
+            this.caCertificatesError = "";
+            if (this.flags.isWebStandalone) {
+                getSavedCACertificates()
+                    .then((caCertificates) => {
+                        this.caCertificates = caCertificates;
+                    })
+                    .catch((error) => {
+                        this.caCertificatesError = `The saved file could not be read: ${error.message}`;
+                    });
             }
 
-            if(savedDisableIframeSandbox) {
+            if (savedDisableIframeSandbox) {
                 try {
-                    this.disableIframeSandbox = JSON.parse(savedDisableIframeSandbox)
+                    this.disableIframeSandbox = JSON.parse(
+                        savedDisableIframeSandbox,
+                    );
                 } catch (e) {
-                    this.disableIframeSandbox = false
+                    this.disableIframeSandbox = false;
                 }
             }
 
-            if(savedGlobalUserAgent) {
-                this.globalUserAgent = savedGlobalUserAgent
+            if (savedGlobalUserAgent) {
+                this.globalUserAgent = savedGlobalUserAgent;
             }
 
-            if(savedIndentSize) {
-                this.indentSize = savedIndentSize
+            if (savedIndentSize) {
+                this.indentSize = savedIndentSize;
             }
 
-            if(savedShowTabs) {
+            if (savedShowTabs) {
                 try {
-                    this.showTabs = JSON.parse(savedShowTabs)
+                    this.showTabs = JSON.parse(savedShowTabs);
                 } catch (e) {
-                    this.showTabs = true
+                    this.showTabs = true;
                 }
             }
 
-            if(savedHidePasswordFields) {
-                this.hidePasswordFields = this.getStoredJSON(constants.LOCAL_STORAGE_KEY.HIDE_PASSWORD_FIELDS, false)
+            if (savedHidePasswordFields) {
+                this.hidePasswordFields = this.getStoredJSON(
+                    constants.LOCAL_STORAGE_KEY.HIDE_PASSWORD_FIELDS,
+                    false,
+                );
             }
 
-            this.customResponseFormats = this.getStoredJSON(constants.LOCAL_STORAGE_KEY.CUSTOM_RESPONSE_FORMATS)
-            this.$store.state.settings.customResponseFormats = this.customResponseFormats
+            this.customResponseFormats = this.getStoredJSON(
+                constants.LOCAL_STORAGE_KEY.CUSTOM_RESPONSE_FORMATS,
+            );
+            this.$store.state.settings.customResponseFormats =
+                this.customResponseFormats;
+
+            if (this.githubSession) {
+                import("@/utils/github-session").then(
+                    ({ getSyncIntervalMinutes }) => {
+                        this.syncIntervalMinutes = getSyncIntervalMinutes();
+                    },
+                );
+            }
         },
         getCurrentUserAgent() {
-            this.globalUserAgent = navigator.userAgent
-        }
-    }
-}
+            this.globalUserAgent = navigator.userAgent;
+        },
+        async signOut(wipeLocal) {
+            const message = wipeLocal
+                ? "Sign out and clear the local repository cache? Your private GitHub repo will not be deleted."
+                : "Sign out of GitHub?";
+            if (!(await window.createConfirm(message))) {
+                return;
+            }
+            const { logoutGitHub } = await import("@/utils/github-session");
+            await logoutGitHub({ wipeLocal });
+            this.$store.commit("setGitHubSession", null);
+            this.$store.commit("setGitHubSyncStatus", null);
+            document.location.reload();
+        },
+    },
+};
 </script>
 
 <style scoped>

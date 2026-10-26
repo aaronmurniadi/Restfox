@@ -27,6 +27,26 @@
             </div>
         </div>
         <div class="right-nav-container">
+            <template v-if="githubSession">
+                <a
+                    :href="githubSession.repo.htmlUrl"
+                    target="_blank"
+                    rel="noopener"
+                    class="bl"
+                    :title="githubSession.repo.fullName"
+                    >{{ githubSession.repo.fullName }}</a
+                >
+                <a
+                    href="#"
+                    @click.prevent="syncGitHub"
+                    class="bl"
+                    :title="syncTitle"
+                    >{{ syncing ? "Syncing…" : syncLabel }}</a
+                >
+                <a href="#" @click.prevent="pullGitHub" class="bl"
+                    >Pull</a
+                >
+            </template>
             <a href="#" @click.prevent="cycleTheme()" class="bl theme-selector"
                 >Theme: {{ getThemeName(theme) }}</a
             >
@@ -139,7 +159,11 @@
                     v-if="flags.isWebStandalone"
                     >Open File Workspace</a
                 >
-                <a href="#" @click.prevent="backupAndRestore" class="bl"
+                <a
+                    href="#"
+                    @click.prevent="backupAndRestore"
+                    class="bl"
+                    v-if="!githubSession"
                     >Backup & Restore</a
                 >
             </template>
@@ -286,9 +310,43 @@ export default {
                 contextMenuY: null,
                 element: null,
             },
+            syncing: false,
         };
     },
     computed: {
+        githubSession() {
+            return this.$store.state.githubSession;
+        },
+        githubSyncStatus() {
+            return this.$store.state.githubSyncStatus;
+        },
+        syncLabel() {
+            if (this.githubSyncStatus?.dirty) {
+                return "Sync •";
+            }
+            if (this.githubSyncStatus?.ahead > 0) {
+                return `Sync ↑${this.githubSyncStatus.ahead}`;
+            }
+            return "Sync";
+        },
+        syncTitle() {
+            if (!this.githubSyncStatus) {
+                return "Commit and push local changes to GitHub";
+            }
+            const parts = [];
+            if (this.githubSyncStatus.dirty) {
+                parts.push("uncommitted changes");
+            }
+            if (this.githubSyncStatus.ahead) {
+                parts.push(`${this.githubSyncStatus.ahead} ahead`);
+            }
+            if (this.githubSyncStatus.behind) {
+                parts.push(`${this.githubSyncStatus.behind} behind`);
+            }
+            return parts.length
+                ? parts.join(", ")
+                : "Up to date with GitHub";
+        },
         environmentModalShow: {
             get() {
                 return this.$store.state.showEnvironmentModal;
@@ -498,6 +556,47 @@ export default {
         async openFileWorkspace() {
             this.showAddWorkspaceModal = true;
         },
+        async refreshSyncStatus() {
+            if (!this.githubSession) {
+                return;
+            }
+            const { refreshSyncStatus } = await import("@/utils/github-session");
+            const status = await refreshSyncStatus();
+            this.$store.commit("setGitHubSyncStatus", status);
+        },
+        async syncGitHub() {
+            if (this.syncing || !this.githubSession) {
+                return;
+            }
+            this.syncing = true;
+            try {
+                const { syncToGitHub } = await import("@/utils/github-session");
+                await syncToGitHub();
+                await this.refreshSyncStatus();
+                this.$toast.success("Synced to GitHub");
+            } catch (error) {
+                this.$toast.error(error.message || "Sync failed");
+            } finally {
+                this.syncing = false;
+            }
+        },
+        async pullGitHub() {
+            if (this.syncing || !this.githubSession) {
+                return;
+            }
+            this.syncing = true;
+            try {
+                const { pullFromGitHub } = await import("@/utils/github-session");
+                await pullFromGitHub();
+                await this.$store.dispatch("loadWorkspaces");
+                await this.refreshSyncStatus();
+                this.$toast.success("Pulled from GitHub");
+            } catch (error) {
+                this.$toast.error(error.message || "Pull failed");
+            } finally {
+                this.syncing = false;
+            }
+        },
         getThemeName(theme) {
             return theme.charAt(0).toUpperCase() + theme.slice(1);
         },
@@ -598,6 +697,11 @@ export default {
             this.workspaceQuickSwitcherElement = containerElement;
             this.workspaceQuickSwitcherDropdownVisible = true;
         },
+    },
+    mounted() {
+        if (this.githubSession) {
+            this.refreshSyncStatus();
+        }
     },
 };
 </script>

@@ -6,7 +6,7 @@
                 <input type="text" class="full-width-input" v-model="newName" placeholder="Workspace Name" required spellcheck="false" v-focus :disabled="duplicating">
             </label>
 
-            <template v-if="isFileWorkspaceSupported">
+            <template v-if="isFileWorkspaceSupported && !githubSession">
                 <div style="margin-top: 1rem">
                     <label>
                         <div style="font-weight: 500; margin-bottom: var(--label-margin-bottom)">Type</div>
@@ -27,6 +27,10 @@
                     <div style="margin-top: 0.5rem">Provide an empty folder</div>
                 </div>
             </template>
+
+            <p v-else-if="githubSession" style="margin-top: 1rem; opacity: 0.8;">
+                The copy will be added under workspaces/ in {{ githubSession.repo.fullName }}.
+            </p>
 
             <div style="margin-top: 1.5rem">
                 <label style="display: flex">
@@ -95,14 +99,20 @@ export default {
                 }
                 this.$emit('update:showModal', value)
             }
-        }
+        },
+        githubSession() {
+            return this.$store.state.githubSession
+        },
     },
     watch: {
         workspaceToDuplicate() {
             if(this.workspaceToDuplicate) {
                 this.newName = this.workspaceToDuplicate.name + ' (copy)'
 
-                if(this.isFileWorkspaceSupported) {
+                if(this.githubSession) {
+                    this.workspaceType = 'github'
+                    this.workspaceLocation = ''
+                } else if(this.isFileWorkspaceSupported) {
                     this.workspaceType = 'file'
                     this.workspaceLocation = ''
                 }
@@ -111,7 +121,7 @@ export default {
     },
     methods: {
         async duplicateWorkspace() {
-            if(this.isFileWorkspaceSupported && this.workspaceType === 'file') {
+            if(this.isFileWorkspaceSupported && this.workspaceType === 'file' && !this.githubSession) {
                 const result = await fileIPC.ensureEmptyFolderOrEmptyWorkspace(this.workspaceLocation)
 
                 if(result.error) {
@@ -126,7 +136,7 @@ export default {
                 await this.$store.dispatch('duplicateWorkspace', {
                     sourceWorkspace: JSON.parse(JSON.stringify(this.workspaceToDuplicate)),
                     name: this.newName,
-                    type: this.workspaceType,
+                    type: this.githubSession ? 'github' : this.workspaceType,
                     location: this.workspaceLocation,
                     includeResponseHistory: this.includeResponseHistory,
                 })
