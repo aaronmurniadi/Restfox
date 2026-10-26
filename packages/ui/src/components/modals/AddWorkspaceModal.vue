@@ -21,8 +21,7 @@
                         <div style="font-weight: 500; margin-bottom: var(--label-margin-bottom)">Choose a folder</div>
                         <div style="display: flex;">
                             <input type="text" class="full-width-input" v-model="workspaceLocation" placeholder="Folder Path" required spellcheck="false">
-                            <button class="button" type="button" @click="openFolderDialog" v-if="isElectron">Choose</button>
-                            <button class="button" type="button" @click="showFolderBrowser = true" v-if="!isElectron">Browse</button>
+                            <button class="button" type="button" @click="showFolderBrowser = true">Browse</button>
                         </div>
                     </label>
                     <div style="margin-top: 0.5rem">Provide an empty folder or select a folder with an existing workspace</div>
@@ -60,10 +59,6 @@ export default {
         workspace: {
             type: Object,
             required: false
-        },
-        isElectron: {
-            type: Boolean,
-            default: false
         },
         isFileWorkspaceSupported: {
             type: Boolean,
@@ -167,12 +162,6 @@ export default {
                 }
             } catch {}
         },
-        async openFolderDialog() {
-            this.workspaceLocation = await window.electronIPC.openFolderSelectionDialog()
-            if (this.workspaceLocation) {
-                this.getSetWorkspaceName()
-            }
-        }
     }
 }
 </script>

@@ -1,1 +1,1 @@
-export { isBypassed, parseResolvedProxy, getProxyForRequest, getProxyForGrpc, takeProxyAuthorization, getProxyAgentOptions, removeProxyCredentials } from '../../electron/shared/proxy.js'
+export { isBypassed, parseResolvedProxy, getProxyForRequest, getProxyForGrpc, takeProxyAuthorization, getProxyAgentOptions, removeProxyCredentials } from '../../shared/proxy.js'

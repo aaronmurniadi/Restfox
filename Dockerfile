@@ -4,10 +4,8 @@ RUN apk add --no-cache git
 RUN mkdir /app
 ADD .git /app/.git
 ADD ./docs /app/docs
-# To fix: Could not resolve "../../electron/package.json" from "src/helpers.ts", we need to include this:
-ADD ./packages/electron/package.json /app/packages/electron/package.json
 ADD ./packages/ui /app/packages/ui/
-ADD ./packages/electron/shared /app/electron/shared/
+ADD ./packages/shared /app/packages/shared/
 ADD ./packages/web-standalone /app/web-standalone/
 WORKDIR /app/packages/ui
 RUN npm ci && npm run build-web-standalone
@@ -20,7 +18,7 @@ ENV RESTFOX_INSTALL_KIND=docker
 RUN mkdir -p /app/web-standalone/public
 WORKDIR /app/web-standalone
 VOLUME /app/data
-COPY --from=build /app/electron/shared /app/electron/shared
+COPY --from=build /app/packages/shared /app/shared
 COPY --from=build /app/web-standalone /app/web-standalone
 COPY --from=build /app/packages/ui/dist /app/web-standalone/public
 CMD ["npm", "start"]

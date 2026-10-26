@@ -480,7 +480,6 @@ describe(`Function: ${fetchWrapper.name}`, () => {
             null,
             abortController.signal,
             {
-                electronSwitchToChromiumFetch: false,
                 disableSSLVerification: false,
                 requestTimeout: 10,
             }
@@ -506,7 +505,6 @@ describe(`Function: ${fetchWrapper.name}`, () => {
             null,
             abortController.signal,
             {
-                electronSwitchToChromiumFetch: false,
                 disableSSLVerification: false,
                 requestTimeout: 1000,
             }
@@ -539,7 +537,6 @@ describe(`Function: ${fetchWrapper.name}`, () => {
             body,
             abortController.signal,
             {
-                electronSwitchToChromiumFetch: false,
                 disableSSLVerification: false,
                 requestTimeout: 10,
             }
@@ -563,7 +560,7 @@ describe('Streaming responses', () => {
     const binaryBody = Uint8Array.from({ length: 1024 }, (_, index) => index % 256)
     const jsonBody = encoder.encode('{"id":1,"name":"ünïcode ✓"}')
     const requestUrl = new URL('https://example.com')
-    const fetchFlags = (requestTimeout = 0) => ({ electronSwitchToChromiumFetch: false, disableSSLVerification: false, requestTimeout })
+    const fetchFlags = (requestTimeout = 0) => ({ disableSSLVerification: false, requestTimeout })
 
     // 1, 2, 3, ... bytes, so chunk edges fall everywhere, multibyte characters included
     const unevenChunks = (bytes: Uint8Array) => {
@@ -729,216 +726,6 @@ describe('Streaming responses', () => {
             const onResponseProgress = vi.fn()
             await expect(fetchWrapper(requestUrl, 'GET', {}, null, new AbortController().signal, fetchFlags(), onResponseProgress)).rejects.toMatchObject({ message: 'Failed to fetch' })
             expect(onResponseProgress).not.toHaveBeenCalled()
-        })
-    })
-
-    describe('Electron', () => {
-        type Push = (requestId: string, message: unknown) => void
-
-        const stubElectron = () => {
-            const listeners: Push[] = []
-            const ipc = {
-                onRequestEvent: vi.fn((callback: Push) => {
-                    listeners.push(callback)
-                }),
-                sendRequest: vi.fn<(payload: { requestId: string }) => Promise<unknown>>(async() => undefined),
-                cancelRequest: vi.fn(),
-            }
-            ;(window as any).electronIPC = ipc
-            const push: Push = (requestId, message) => listeners.forEach(listener => listener(requestId, message))
-            return { ipc, push }
-        }
-
-        // a mimeType taken from the header as is, not as a blob gives it, would differ
-        const head = { status: 200, statusText: 'OK', headers: [['content-type', 'Application/JSON; Charset=UTF-8']], headTimeTaken: 5, requestHeadersSent: [['accept', '*/*']] }
-        // as main and the server send it, with no mimeType, which the UI works out from the head
-        const end = { timeTaken: 12, bodyTimeTaken: 7 }
-        const mimeType = 'application/json;charset=utf-8'
-
-        // what the renderer made of main's old { event: 'response' } reply
-        const bufferedResult = (bytes: Uint8Array) => ({
-            status: 200,
-            statusText: 'OK',
-            headers: head.headers,
-            mimeType,
-            buffer: new Uint8Array(bytes).buffer,
-            timeTaken: 12,
-            headTimeTaken: 5,
-            bodyTimeTaken: 7,
-            requestHeadersSent: [['accept', '*/*']],
-        })
-
-        const pushResponse = (push: Push, requestId: string, bytes: Uint8Array) => {
-            push(requestId, { event: 'head', eventData: head })
-            unevenChunks(bytes).forEach(chunk => push(requestId, { event: 'data', eventData: chunk }))
-            push(requestId, { event: 'end', eventData: end })
-        }
-
-        const nextTask = () => new Promise(resolve => setTimeout(resolve, 0))
-
-        beforeEach(() => {
-            vi.stubEnv('MODE', 'desktop-electron')
-        })
-
-        afterEach(() => {
-            vi.unstubAllEnvs()
-            delete (window as any).electronIPC
-        })
-
-        const orders: { name: string, send: (push: Push, requestId: string, bytes: Uint8Array) => Promise<void> }[] = [
-            { name: 'all pushed before the invoke reply', send: async(push, requestId, bytes) => pushResponse(push, requestId, bytes) },
-            { name: 'all pushed after the invoke reply', send: async(push, requestId, bytes) => {
-                setTimeout(() => pushResponse(push, requestId, bytes), 0)
-            } },
-            { name: 'the invoke reply between head and data', send: async(push, requestId, bytes) => {
-                push(requestId, { event: 'head', eventData: head })
-                setTimeout(() => {
-                    unevenChunks(bytes).forEach(chunk => push(requestId, { event: 'data', eventData: chunk }))
-                    push(requestId, { event: 'end', eventData: end })
-                }, 0)
-            } },
-        ]
-
-        for(const order of orders) {
-            for(const [bodyName, bytes] of [['JSON', jsonBody], ['binary', binaryBody]] as const) {
-                test(`a ${bodyName} response with ${order.name} gives exactly what the old reply gave, with or without a progress handler`, async() => {
-                    const { ipc, push } = stubElectron()
-                    ipc.sendRequest.mockImplementation(async({ requestId }) => {
-                        await order.send(push, requestId, bytes)
-                        return undefined
-                    })
-
-                    const withoutHandler = await fetchWrapper(requestUrl, 'GET', {}, null, new AbortController().signal, fetchFlags())
-                    const onResponseProgress = vi.fn()
-                    const withHandler = await fetchWrapper(requestUrl, 'GET', {}, null, new AbortController().signal, fetchFlags(), onResponseProgress)
-
-                    const expected = bufferedResult(bytes)
-                    for(const response of [withoutHandler, withHandler]) {
-                        expect(Object.keys(response).sort()).toEqual(Object.keys(expected).sort())
-                        expect(response).toEqual(expected)
-                        expect(new Uint8Array(response.buffer)).toEqual(bytes)
-                    }
-                    expect(onResponseProgress.mock.calls[0][0]).toEqual({ type: 'head', head })
-                    expect(progressBytes(onResponseProgress)).toEqual(bytes)
-                })
-            }
-        }
-
-        test('the request body is sent as before', async() => {
-            const { ipc, push } = stubElectron()
-            ipc.sendRequest.mockImplementation(async({ requestId }) => pushResponse(push, requestId, jsonBody))
-
-            await fetchWrapper(requestUrl, 'POST', { 'X-Trace': 't1' }, new File(['ab'], 'a.txt', { type: 'text/plain' }), new AbortController().signal, fetchFlags())
-
-            expect(ipc.sendRequest.mock.calls[0][0]).toEqual({
-                requestId: expect.any(String),
-                url: 'https://example.com/',
-                method: 'POST',
-                headers: { 'X-Trace': 't1' },
-                body: { name: 'a.txt', type: 'text/plain', buffer: [97, 98] },
-                bodyHint: 'File',
-                disableSSLVerification: false,
-            })
-        })
-
-        test('a cancel after the head keeps what arrived and ignores later pushes, without a handler it rejects as before', async() => {
-            const { ipc, push } = stubElectron()
-            let requestId = ''
-            ipc.sendRequest.mockImplementation(async(payload) => {
-                requestId = payload.requestId
-                push(requestId, { event: 'head', eventData: { ...head, headers: [['content-type', 'text/event-stream']] } })
-                push(requestId, { event: 'data', eventData: sseChunk })
-            })
-
-            const abortController = new AbortController()
-            const onResponseProgress = vi.fn()
-            const promise = fetchWrapper(requestUrl, 'GET', {}, null, abortController.signal, fetchFlags(), onResponseProgress)
-            await nextTask()
-            abortController.abort()
-            const response = await promise
-
-            expect(ipc.cancelRequest).toHaveBeenCalledWith(requestId)
-            expect(response.bodyIncomplete).toBe('cancelled')
-            expect(response.mimeType).toBe('text/event-stream')
-            expect(new Uint8Array(response.buffer)).toEqual(sseChunk)
-
-            const callsBefore = onResponseProgress.mock.calls.length
-            push(requestId, { event: 'data', eventData: encoder.encode('late') })
-            push(requestId, { event: 'end', eventData: end })
-            expect(onResponseProgress.mock.calls.length).toBe(callsBefore)
-
-            const abortWithoutHandler = new AbortController()
-            const withoutHandler = fetchWrapper(requestUrl, 'GET', {}, null, abortWithoutHandler.signal, fetchFlags())
-            await nextTask()
-            abortWithoutHandler.abort()
-            await expect(withoutHandler).rejects.toMatchObject({ name: 'AbortError' })
-        })
-
-        test('a timeout after the head keeps what arrived, marked timedOut, before the head it is a TimeoutError', async() => {
-            vi.useFakeTimers()
-            const { ipc, push } = stubElectron()
-            ipc.sendRequest.mockImplementation(async({ requestId }) => {
-                push(requestId, { event: 'head', eventData: head })
-                push(requestId, { event: 'data', eventData: jsonBody })
-            })
-            const promise = fetchWrapper(requestUrl, 'GET', {}, null, new AbortController().signal, fetchFlags(50), vi.fn())
-            await vi.advanceTimersByTimeAsync(50)
-            const response = await promise
-            expect(response.bodyIncomplete).toBe('timedOut')
-            expect(new Uint8Array(response.buffer)).toEqual(jsonBody)
-
-            ipc.sendRequest.mockImplementation(async() => undefined)
-            const beforeHead = fetchWrapper(requestUrl, 'GET', {}, null, new AbortController().signal, fetchFlags(50), vi.fn())
-            const expectation = expect(beforeHead).rejects.toMatchObject({ name: 'TimeoutError' })
-            await vi.advanceTimersByTimeAsync(50)
-            await expectation
-        })
-
-        test('a body error keeps what arrived, marked failed, with one line in Logs, and rejects without a handler', async() => {
-            const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
-            const { ipc, push } = stubElectron()
-            ipc.sendRequest.mockImplementation(async({ requestId }) => {
-                push(requestId, { event: 'head', eventData: head })
-                push(requestId, { event: 'data', eventData: jsonBody })
-                push(requestId, { event: 'bodyError', eventData: { message: 'terminated: other side closed', timeTaken: 30, bodyTimeTaken: 25 } })
-            })
-
-            const response = await fetchWrapper(requestUrl, 'GET', {}, null, new AbortController().signal, fetchFlags(), vi.fn())
-            expect(response).toMatchObject({ bodyIncomplete: 'failed', timeTaken: 30, bodyTimeTaken: 25, headTimeTaken: 5, mimeType })
-            expect(new Uint8Array(response.buffer)).toEqual(jsonBody)
-            expect(consoleError).toHaveBeenCalledTimes(1)
-
-            await expect(fetchWrapper(requestUrl, 'GET', {}, null, new AbortController().signal, fetchFlags())).rejects.toMatchObject({ message: 'terminated: other side closed' })
-        })
-
-        test('a failure before the head, pushed or from the invoke, rejects as before', async() => {
-            const { ipc, push } = stubElectron()
-            ipc.sendRequest.mockImplementation(async({ requestId }) => push(requestId, { event: 'responseError', eventData: 'TypeError: fetch failed\nError: getaddrinfo ENOTFOUND' }))
-            await expect(fetchWrapper(requestUrl, 'GET', {}, null, new AbortController().signal, fetchFlags(), vi.fn())).rejects.toMatchObject({ message: 'TypeError: fetch failed\nError: getaddrinfo ENOTFOUND' })
-
-            ipc.sendRequest.mockImplementation(async() => {
-                throw new Error('No handler registered for \'sendRequest\'')
-            })
-            await expect(fetchWrapper(requestUrl, 'GET', {}, null, new AbortController().signal, fetchFlags())).rejects.toMatchObject({ message: 'No handler registered for \'sendRequest\'' })
-        })
-
-        // the store keeps a tab's abort controller until its next send, so a handler left on its signal would keep the body
-        test('a finished send leaves no handler on the signal, which would keep what arrived in memory', async() => {
-            const { ipc, push } = stubElectron()
-            ipc.sendRequest.mockImplementation(async({ requestId }) => pushResponse(push, requestId, jsonBody))
-            const abortController = new AbortController()
-
-            await fetchWrapper(requestUrl, 'GET', {}, null, abortController.signal, fetchFlags(), vi.fn())
-            expect(abortController.signal.onabort).toBeNull()
-
-            ipc.sendRequest.mockImplementation(async({ requestId }) => push(requestId, { event: 'responseError', eventData: 'TypeError: fetch failed' }))
-            const failedAbortController = new AbortController()
-            await expect(fetchWrapper(requestUrl, 'GET', {}, null, failedAbortController.signal, fetchFlags(), vi.fn())).rejects.toThrow()
-            expect(failedAbortController.signal.onabort).toBeNull()
-
-            abortController.abort()
-            failedAbortController.abort()
-            expect(ipc.cancelRequest).not.toHaveBeenCalled()
         })
     })
 
@@ -1489,7 +1276,6 @@ describe(`Function: ${handleRequest.name}`, () => {
             null,
             abortController.signal,
             {
-                electronSwitchToChromiumFetch: false,
                 disableSSLVerification: false,
                 requestTimeout: 10,
             }
@@ -1518,7 +1304,6 @@ describe(`Function: ${handleRequest.name}`, () => {
         null,
         signal,
         {
-            electronSwitchToChromiumFetch: false,
             disableSSLVerification: false,
             requestTimeout: 0,
         }
@@ -2125,7 +1910,7 @@ describe('Header name casing', () => {
                 sentHeaders = init.headers
                 return new Response('ok')
             })
-            const response = await handleRequest(request(fields), {}, {}, undefined, async() => undefined, [], null, new AbortController().signal, { electronSwitchToChromiumFetch: false, disableSSLVerification: false, requestTimeout: 0 })
+            const response = await handleRequest(request(fields), {}, {}, undefined, async() => undefined, [], null, new AbortController().signal, { disableSSLVerification: false, requestTimeout: 0 })
             return { sentHeaders, response }
         }
 
@@ -2144,7 +1929,7 @@ describe('Header name casing', () => {
 describe(`Function: ${fetchGraphQLSchema.name}`, () => {
     const request = (fields: Partial<CollectionItem>) => ({ _id: 'r', _type: 'request', workspaceId: 'w', parentId: 'f', name: 'Request', method: 'POST', url: 'https://example.test/graphql', body: { mimeType: 'application/graphql', text: '{"query":"{ hello }"}' }, ...fields }) as CollectionItem
     const types = [{ name: 'Query', kind: 'OBJECT', description: null, fields: [{ name: 'hello', type: { name: 'String', kind: 'SCALAR' } }] }]
-    const flags = { electronSwitchToChromiumFetch: false, disableSSLVerification: false, requestTimeout: 0 }
+    const flags = { disableSSLVerification: false, requestTimeout: 0 }
 
     const fetchSchema = async(fields: Partial<CollectionItem>, { environment = {}, parentHeaders = {}, parentAuthentication, response = new Response(JSON.stringify({ data: { __schema: { types } } })) }: { environment?: Record<string, any>, parentHeaders?: Record<string, string[]>, parentAuthentication?: CollectionItem['authentication'], response?: Response } = {}) => {
         const sent: { url?: string, method?: string, headers?: Record<string, string>, body?: string } = {}
@@ -2738,7 +2523,7 @@ describe('Prompt tag', () => {
             sent.headers = init.headers
             return new Response('ok')
         })
-        const response = await handleRequest(request(fields), environment, {}, undefined, async() => undefined, plugins as any, null, new AbortController().signal, { electronSwitchToChromiumFetch: false, disableSSLVerification: false, requestTimeout: 0 }) as RequestFinalResponse
+        const response = await handleRequest(request(fields), environment, {}, undefined, async() => undefined, plugins as any, null, new AbortController().signal, { disableSSLVerification: false, requestTimeout: 0 }) as RequestFinalResponse
         return { sent, response }
     }
 
@@ -2955,7 +2740,7 @@ describe('Prompt tag', () => {
         const plugin = { _id: 'p', type: 'script', name: 'script', code: { pre_request: `rf.setEnvVar('ran', 'yes')`, post_request: '' }, workspaceId: null, collectionId: 'r', enabled: true, createdAt: 0, updatedAt: 0 }
         const setEnvironmentVariable = vi.fn(async() => undefined)
         answers = [null]
-        const response = await handleRequest(request({ url: `https://example.test/{% prompt(title='Url') %}`, headers: [{ name: 'X-Header', value: `{% prompt(title='Header') %}` }] }), {}, {}, undefined, setEnvironmentVariable, [plugin] as any, null, new AbortController().signal, { electronSwitchToChromiumFetch: false, disableSSLVerification: false, requestTimeout: 0 }) as any
+        const response = await handleRequest(request({ url: `https://example.test/{% prompt(title='Url') %}`, headers: [{ name: 'X-Header', value: `{% prompt(title='Header') %}` }] }), {}, {}, undefined, setEnvironmentVariable, [plugin] as any, null, new AbortController().signal, { disableSSLVerification: false, requestTimeout: 0 }) as any
         expect(response.error).toBe('Error: Prompt "Header" was cancelled')
         expect(createPrompt.mock.calls.map(call => call[0])).toEqual(['Header'])
         expect(setEnvironmentVariable).not.toHaveBeenCalled()
@@ -3152,7 +2937,7 @@ describe('Prompt tag', () => {
             })
             answers = [answer]
             createPrompt.mockClear()
-            const response = await handleRequest(fixture.request, fixture.environment, fixture.parentHeaders, fixture.parentAuthentication, async() => undefined, (fixture.script ? [script] : []) as any, null, new AbortController().signal, { electronSwitchToChromiumFetch: false, disableSSLVerification: false, requestTimeout: 0 }) as RequestFinalResponse
+            const response = await handleRequest(fixture.request, fixture.environment, fixture.parentHeaders, fixture.parentAuthentication, async() => undefined, (fixture.script ? [script] : []) as any, null, new AbortController().signal, { disableSSLVerification: false, requestTimeout: 0 }) as RequestFinalResponse
             // what differs on every send
             const saved = { ...response, _id: '', createdAt: 0, timeTaken: 0, headTimeTaken: 0, bodyTimeTaken: 0 }
             return { sent, saved: JSON.stringify(saved), asked: createPrompt.mock.calls.length }

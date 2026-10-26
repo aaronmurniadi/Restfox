@@ -1,6 +1,6 @@
-import * as fileUtilsShared from '../../electron/shared/file-utils.js'
-import { transformSavedFileObjectToFileObject as transformSavedFileObjectToFileObjectShared } from '../../electron/shared/file-utils.js'
-export { readdirIgnoreError, pathExists, encodeFilename, decodeFilename, transformFileObjectToSaveableFileObject } from '../../electron/shared/file-utils.js'
+import * as fileUtilsShared from '../../shared/file-utils.js'
+import { transformSavedFileObjectToFileObject as transformSavedFileObjectToFileObjectShared } from '../../shared/file-utils.js'
+export { readdirIgnoreError, pathExists, encodeFilename, decodeFilename, transformFileObjectToSaveableFileObject } from '../../shared/file-utils.js'
 import fs from 'fs/promises'
 
 export async function writeFileJson(filePath, data, _fsLog, _reason) {

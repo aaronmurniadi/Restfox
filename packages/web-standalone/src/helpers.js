@@ -1,4 +1,4 @@
-export { readFile, removePrefixFromString } from '../../electron/shared/helpers.js'
+export { readFile, removePrefixFromString } from '../../shared/helpers.js'
 import fs from 'fs/promises'
 import path from 'path'
 

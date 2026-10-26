@@ -1,4 +1,4 @@
-import { createGrpcSchema } from '../../electron/shared/grpc-schema.js'
+import { createGrpcSchema } from '../../shared/grpc-schema.js'
 import { createRequire } from 'module'
 import protobuf from 'protobufjs'
 import descriptor from 'protobufjs/ext/descriptor.js'

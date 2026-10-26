@@ -41,146 +41,8 @@ const statusOk: GrpcCallEvent = { type: 'status', code: 0, name: 'OK', details: 
 // lets pending promise callbacks run
 const settle = () => new Promise(resolve => setTimeout(resolve, 0))
 
-describe('Electron', () => {
-    let pushEvent: (callId: string, grpcEvent: GrpcCallEvent) => void
-    let electronIPC: Record<string, ReturnType<typeof vi.fn>>
-
-    beforeEach(() => {
-        electronIPC = {
-            grpcLoadSchema: vi.fn(),
-            grpcStartCall: vi.fn(async() => undefined),
-            grpcSendMessage: vi.fn(async() => undefined),
-            grpcEndCall: vi.fn(async() => undefined),
-            grpcCancelCall: vi.fn(async() => undefined),
-            grpcCancelSchemaLoad: vi.fn(async() => undefined),
-            grpcConvertInsomniaMessage: vi.fn(),
-            onGrpcEvent: vi.fn(callback => {
-                pushEvent = callback
-            }),
-        }
-        // a fresh object each test, so the transport subscribes to it again
-        vi.stubGlobal('window', { electronIPC })
-        vi.stubEnv('MODE', 'desktop-electron')
-    })
-
-    afterEach(() => {
-        vi.unstubAllGlobals()
-        vi.unstubAllEnvs()
-    })
-
-    test('is available', () => {
-        expect(isGrpcAvailable()).toBe(true)
-    })
-
-    test('starts the call with a call id and passes on its pushed events, nothing after the status and nothing of other calls', async() => {
-        const events: GrpcCallEvent[] = []
-        startGrpcCall(callSpec(), grpcEvent => events.push(grpcEvent))
-
-        expect(electronIPC.onGrpcEvent).toHaveBeenCalledTimes(1)
-        const sentSpec = electronIPC.grpcStartCall.mock.calls[0][0]
-        expect(sentSpec).toEqual({ ...callSpec(), callId: expect.any(String) })
-        const callId = sentSpec.callId
-
-        pushEvent('another call', { type: 'received', json: '{}', time: 1 })
-        pushEvent(callId, { type: 'headers', metadata: [['x-a', '1']], time: 1 })
-        pushEvent(callId, { type: 'received', json: '{\n  "text": "hi"\n}', time: 2 })
-        pushEvent(callId, statusOk)
-        pushEvent(callId, { type: 'received', json: '{}', time: 6 })
-        pushEvent(callId, { type: 'error', message: 'late', time: 7 })
-
-        expect(events).toEqual([
-            { type: 'headers', metadata: [['x-a', '1']], time: 1 },
-            { type: 'received', json: '{\n  "text": "hi"\n}', time: 2 },
-            statusOk,
-        ])
-    })
-
-    test('subscribes to the channel once for every call', () => {
-        startGrpcCall(callSpec(), () => undefined)
-        startGrpcCall(callSpec(), () => undefined)
-        expect(electronIPC.onGrpcEvent).toHaveBeenCalledTimes(1)
-        const [first, second] = electronIPC.grpcStartCall.mock.calls.map(call => call[0].callId)
-        expect(first).not.toBe(second)
-    })
-
-    test('send, end and cancel name the call, and stop once it has ended', () => {
-        const call = startGrpcCall(callSpec(), () => undefined)
-        const callId = electronIPC.grpcStartCall.mock.calls[0][0].callId
-
-        call.send('{"text":"a"}')
-        call.end()
-        call.cancel()
-        expect(electronIPC.grpcSendMessage).toHaveBeenCalledWith(callId, '{"text":"a"}')
-        expect(electronIPC.grpcEndCall).toHaveBeenCalledWith(callId)
-        expect(electronIPC.grpcCancelCall).toHaveBeenCalledWith(callId)
-
-        pushEvent(callId, statusOk)
-        call.send('{}')
-        call.cancel()
-        expect(electronIPC.grpcSendMessage).toHaveBeenCalledTimes(1)
-        expect(electronIPC.grpcCancelCall).toHaveBeenCalledTimes(1)
-    })
-
-    test('a start the main process refuses is the call\'s error event', async() => {
-        electronIPC.grpcStartCall.mockRejectedValueOnce(new Error('Error invoking remote method \'grpcStartCall\': boom'))
-        const events: GrpcCallEvent[] = []
-        startGrpcCall(callSpec(), grpcEvent => events.push(grpcEvent))
-        await settle()
-        expect(events).toEqual([{ type: 'error', message: 'Error invoking remote method \'grpcStartCall\': boom', time: expect.any(Number) }])
-    })
-
-    test('the spec goes as a plain copy, which IPC can clone where it cannot clone a reactive proxy', () => {
-        const spec = callSpec()
-        const proxied = new Proxy(spec, {})
-        startGrpcCall(proxied, () => undefined)
-        const sentSpec = electronIPC.grpcStartCall.mock.calls[0][0]
-        expect(sentSpec).not.toBe(proxied)
-        expect(structuredClone(sentSpec)).toEqual({ ...spec, callId: sentSpec.callId })
-    })
-
-    test('converts an Insomnia message, and a failure rejects with the main process\'s reason', async() => {
-        const spec = { protoFiles: [{ path: 'a.proto', text: '' }], service: 'a.S', method: 'Call', text: '{"flag": {"value": true}}' }
-        electronIPC.grpcConvertInsomniaMessage.mockResolvedValueOnce({ text: '{"flag": true}' })
-        await expect(convertInsomniaGrpcMessage(spec)).resolves.toBe('{"flag": true}')
-        expect(electronIPC.grpcConvertInsomniaMessage).toHaveBeenCalledWith(spec)
-
-        electronIPC.grpcConvertInsomniaMessage.mockResolvedValueOnce({ error: 'a.S has no method Call' })
-        await expect(convertInsomniaGrpcMessage(spec)).rejects.toThrow('a.S has no method Call')
-    })
-
-    test('loads the schema, and a failure rejects with the code the main process gave', async() => {
-        electronIPC.grpcLoadSchema.mockResolvedValueOnce({ schema })
-        await expect(loadGrpcSchema({ target, metadata: [], protoFiles: null, disableSSLVerification: true, timeoutMs: 1000 })).resolves.toEqual(schema)
-        expect(electronIPC.grpcLoadSchema).toHaveBeenCalledWith({ target, metadata: [], protoFiles: null, disableSSLVerification: true, timeoutMs: 1000, loadId: expect.any(String) })
-
-        electronIPC.grpcLoadSchema.mockResolvedValueOnce({ error: 'The server does not offer server reflection', code: 'REFLECTION_UNIMPLEMENTED' })
-        await expect(loadGrpcSchema({ target, metadata: [], protoFiles: null, disableSSLVerification: false })).rejects.toMatchObject({ message: 'The server does not offer server reflection', code: 'REFLECTION_UNIMPLEMENTED' })
-
-        electronIPC.grpcLoadSchema.mockResolvedValueOnce({ error: 'connect ECONNREFUSED', code: null })
-        const error = await loadGrpcSchema({ target, metadata: [], protoFiles: null, disableSSLVerification: false }).catch(e => e)
-        expect(error.message).toBe('connect ECONNREFUSED')
-        expect(error.code).toBeUndefined()
-        expect(error.grpcStatus).toBeUndefined()
-
-        electronIPC.grpcLoadSchema.mockResolvedValueOnce({ error: 'localhost:50051 refused the connection', code: 'CONNECTION_FAILED', grpcStatus: { code: 14, name: 'UNAVAILABLE' } })
-        await expect(loadGrpcSchema({ target, metadata: [], protoFiles: null, disableSSLVerification: false })).rejects.toMatchObject({ code: 'CONNECTION_FAILED', grpcStatus: { code: 14, name: 'UNAVAILABLE' } })
-    })
-})
-
-test.each([['Electron', 'desktop-electron'], ['web-standalone', 'web-standalone']])('%s: an aborted schema load is stopped where it runs', async(_name, mode) => {
-    vi.stubEnv('MODE', mode)
-    let finishLoad: (value: unknown) => void = () => undefined
-    const electronIPC = {
-        grpcStartCall: vi.fn(),
-        grpcLoadSchema: vi.fn((spec: { loadId: string }) => new Promise(resolve => {
-            expect(spec.loadId).toEqual(expect.any(String))
-            finishLoad = resolve
-        })),
-        grpcCancelSchemaLoad: vi.fn(async() => {
-            finishLoad({ error: 'The methods load was cancelled', code: 'CANCELLED' })
-        }),
-    }
-    vi.stubGlobal('window', mode === 'desktop-electron' ? { electronIPC } : {})
+test('web-standalone: an aborted schema load stops the fetch', async() => {
+    vi.stubEnv('MODE', 'web-standalone')
     let fetchSignal: AbortSignal | undefined
     vi.stubGlobal('fetch', vi.fn((_path: string, init: RequestInit) => new Promise((_resolve, reject) => {
         fetchSignal = init.signal ?? undefined
@@ -193,16 +55,10 @@ test.each([['Electron', 'desktop-electron'], ['web-standalone', 'web-standalone'
         await settle()
         abortController.abort()
         expect(await loading).toBeInstanceOf(Error)
+        expect(fetchSignal!.aborted).toBe(true)
 
-        if(mode === 'desktop-electron') {
-            expect(electronIPC.grpcCancelSchemaLoad).toHaveBeenCalledWith(electronIPC.grpcLoadSchema.mock.calls[0][0].loadId)
-        } else {
-            expect(fetchSignal!.aborted).toBe(true)
-        }
-
-        // already aborted, nothing is asked
         await expect(loadGrpcSchema({ target, metadata: [], protoFiles: null, disableSSLVerification: true }, abortController.signal)).rejects.toThrow()
-        expect(electronIPC.grpcLoadSchema.mock.calls.length + vi.mocked(fetch).mock.calls.filter(([path]) => path === '/grpc/schema').length).toBe(1)
+        expect(vi.mocked(fetch).mock.calls.filter(([path]) => path === '/grpc/schema').length).toBe(1)
     } finally {
         vi.unstubAllGlobals()
         vi.unstubAllEnvs()

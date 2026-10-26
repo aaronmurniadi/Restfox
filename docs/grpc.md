@@ -4,20 +4,20 @@ A gRPC request calls one method of a gRPC service and shows the messages it send
 
 ## Where it works
 
-gRPC calls need the Restfox desktop app or a self-hosted Restfox ([web-standalone](https://github.com/flawiddsouza/Restfox#using-web-standalone) or the [Docker image](https://hub.docker.com/r/flawiddsouza/restfox)), which make the call from your computer or the server. A browser cannot make gRPC calls, so in the web app and the browser extension gRPC requests can be created, edited, imported and exported, but not sent.
+gRPC calls need a self-hosted Restfox ([web-standalone](https://github.com/flawiddsouza/Restfox#using-web-standalone) or the [Docker image](https://hub.docker.com/r/flawiddsouza/restfox)), which makes the call from the server. A browser cannot make gRPC calls, so in the web app and the browser extension gRPC requests can be created, edited, imported and exported, but not sent.
 
-gRPC calls follow Settings > Disable SSL Verification, CA Certificates and Proxy. In the desktop app they do so whichever transport is chosen for HTTP requests.
+gRPC calls follow Settings > Disable SSL Verification, CA Certificates and Proxy on self-hosted Restfox.
 
 ## Server address
 
 The address is the server alone, without a path. Environment variables and tags work in it as in an HTTP url.
 
-| address | connects with |
-|---|---|
-| `grpcs://api.example.com` or `https://api.example.com` | TLS, port 443 |
-| `grpc://10.0.0.5:9000` or `http://10.0.0.5:9000` | plaintext |
-| `localhost:50051`, `127.0.0.1:50051`, `[::1]:50051` | plaintext, as the host is this computer |
-| `api.example.com:8443` | TLS, as the host is another computer |
+| address                                                | connects with                           |
+| ------------------------------------------------------ | --------------------------------------- |
+| `grpcs://api.example.com` or `https://api.example.com` | TLS, port 443                           |
+| `grpc://10.0.0.5:9000` or `http://10.0.0.5:9000`       | plaintext                               |
+| `localhost:50051`, `127.0.0.1:50051`, `[::1]:50051`    | plaintext, as the host is this computer |
+| `api.example.com:8443`                                 | TLS, as the host is another computer    |
 
 Without a port, TLS uses 443 and plaintext 80. The tag next to the address says which one Restfox will use.
 
@@ -34,12 +34,12 @@ Pick the method from the method picker in the address bar. A new message is fill
 
 ## The four kinds of call
 
-| kind | what you do |
-|---|---|
-| unary | **Send** sends the message and shows the reply. |
-| server stream | **Send** sends the message and shows each reply as it arrives, until the server ends the call or you press **Stop**. |
+| kind          | what you do                                                                                                                                                       |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| unary         | **Send** sends the message and shows the reply.                                                                                                                   |
+| server stream | **Send** sends the message and shows each reply as it arrives, until the server ends the call or you press **Stop**.                                              |
 | client stream | **Start** opens the call, **Send message** sends the message in the editor, as often as you like, and **End stream** tells the server you sent your last message. |
-| bidi stream | as a client stream, with each reply shown as it arrives. |
+| bidi stream   | as a client stream, with each reply shown as it arrives.                                                                                                          |
 
 The response panel lists the messages in the order they went out and came in, with the status the server ended the call with, its sent and received metadata and its trailers. Each finished call is kept in the response history, including its sent metadata. The response panel's **Metadata** tab shows sent metadata above received metadata.
 
@@ -71,4 +71,4 @@ The request's menu in the sidebar has **Copy as grpcurl**, which copies a [grpcu
 
 ## Import
 
-gRPC requests come along in Restfox exports, and are imported from Insomnia exports with their metadata and message. An Insomnia v4 export carries the request's `.proto` files and an Insomnia v5 export leaves them out, so a request imported from v5 uses server reflection until you add the files. Insomnia writes some values of a message in another form than the protobuf JSON format Restfox sends, such as a `google.protobuf.BoolValue` as `{"value": true}` rather than `true`, or a `Timestamp` as `{"seconds": 1}`. Restfox rewrites them while importing, from the export's `.proto` files, in the desktop app and a self-hosted Restfox. A message imported without them keeps Insomnia's form, which you change by hand. Insomnia sends a gRPC request with only its own metadata, while Restfox also sends the headers of the folders it is in, so check the folders of an imported request for headers meant only for HTTP requests.
+gRPC requests come along in Restfox exports, and are imported from Insomnia exports with their metadata and message. An Insomnia v4 export carries the request's `.proto` files and an Insomnia v5 export leaves them out, so a request imported from v5 uses server reflection until you add the files. Insomnia writes some values of a message in another form than the protobuf JSON format Restfox sends, such as a `google.protobuf.BoolValue` as `{"value": true}` rather than `true`, or a `Timestamp` as `{"seconds": 1}`. Restfox rewrites them while importing, from the export's `.proto` files, in self-hosted Restfox. A message imported without them keeps Insomnia's form, which you change by hand. Insomnia sends a gRPC request with only its own metadata, while Restfox also sends the headers of the folders it is in, so check the folders of an imported request for headers meant only for HTTP requests.

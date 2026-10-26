@@ -2,13 +2,13 @@ const { readFileSync, writeFileSync } = require('fs')
 const path = require('path')
 const { execSync } = require('child_process')
 
-const pathToElectron = path.join(__dirname, '../packages/electron')
-const pathToElectronPackageJSON = path.join(pathToElectron, 'package.json')
-const pathToElectronPackageLockJSON = path.join(pathToElectron, 'package-lock.json')
+const pathToUi = path.join(__dirname, '../packages/ui')
+const pathToUiPackageJSON = path.join(pathToUi, 'package.json')
+const pathToUiPackageLockJSON = path.join(pathToUi, 'package-lock.json')
 const pathToChromeAppManifest = path.join(__dirname, '../packages/browser-extension/v3-app/src/manifest.json')
 const pathToREADME = path.join(__dirname, '../README.md')
 
-const packageJSON = JSON.parse(readFileSync(pathToElectronPackageJSON))
+const packageJSON = JSON.parse(readFileSync(pathToUiPackageJSON))
 const chromeAppManifest = JSON.parse(readFileSync(pathToChromeAppManifest))
 const README = readFileSync(pathToREADME).toString()
 
@@ -75,14 +75,10 @@ if(isNewerVersion(packageJSON.version, chromeAppManifest.version)) {
 }
 chromeAppManifest.version_name = packageJSON.version
 
-writeFileSync(pathToElectronPackageJSON, JSON.stringify(packageJSON, null, 4) + '\n')
+writeFileSync(pathToUiPackageJSON, JSON.stringify(packageJSON, null, 4) + '\n')
 writeFileSync(pathToChromeAppManifest, JSON.stringify(chromeAppManifest, null, 4) + '\n')
 writeFileSync(pathToREADME, README.replace(/\d+\.\d+\.\d+/g, packageJSON.version))
 
-execSync('npm i', {
-    cwd: pathToElectron
-})
-
-execSync(`git add ${pathToElectronPackageJSON} ${pathToElectronPackageLockJSON} ${pathToChromeAppManifest} ${pathToREADME}`)
+execSync(`git add ${pathToUiPackageJSON} ${pathToUiPackageLockJSON} ${pathToChromeAppManifest} ${pathToREADME}`)
 execSync(`git commit -m "chore: bump version"`)
 execSync(`git tag v${packageJSON.version} --force`)

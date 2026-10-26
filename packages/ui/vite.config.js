@@ -29,10 +29,10 @@ function copyBuildTo(...destinations) {
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-    // The offline cache and its update prompt are for the web build. The other
-    // builds carry their files with them and update through their own channel,
-    // and Electron's file:// pages cannot register a service worker at all
-    const usesOfflineCache = !['web-standalone', 'desktop', 'desktop-electron'].includes(mode)
+    // The offline cache and its update prompt are for the web build. Packaged
+    // builds (extension, web-standalone) ship their files with the host and do
+    // not use a service worker.
+    const usesOfflineCache = !['web-standalone', 'extension'].includes(mode)
 
     const config = {
         plugins: [
@@ -134,12 +134,8 @@ export default defineConfig(({ mode }) => {
         },
     }
 
-    if(mode === 'desktop') {
-        config.plugins.push(...copyBuildTo('../electron/ui', '../tauri/ui', '../browser-extension/v3-app/src/ui'))
-    }
-
-    if(mode === 'desktop-electron') {
-        config.plugins.push(...copyBuildTo('../electron/ui'))
+    if(mode === 'extension') {
+        config.plugins.push(...copyBuildTo('../browser-extension/v3-app/src/ui'))
     }
 
     if(mode === 'web-standalone') {

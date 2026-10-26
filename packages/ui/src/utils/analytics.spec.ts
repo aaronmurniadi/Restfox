@@ -8,17 +8,16 @@ describe('getAnalyticsPageUrl', () => {
         expect(getAnalyticsPageUrl('extension', null, '0.41.0')).toBe('/extension/0.41.0')
     })
 
-    it('adds the install kind for desktop and web-standalone', () => {
-        expect(getAnalyticsPageUrl('desktop', { installKind: 'snap', appName: 'Restfox' }, '0.41.0')).toBe('/desktop/snap/0.41.0')
+    it('adds the install kind for web-standalone', () => {
         expect(getAnalyticsPageUrl('web-standalone', { installKind: 'docker' }, '0.41.0')).toBe('/web-standalone/docker/0.41.0')
     })
 
     it('reports other when the shell or server cannot say how it was installed', () => {
-        expect(getAnalyticsPageUrl('desktop', null, '0.41.0')).toBe('/desktop/other/0.41.0')
+        expect(getAnalyticsPageUrl('web-standalone', null, '0.41.0')).toBe('/web-standalone/other/0.41.0')
     })
 
     it('adds the name of a renamed app', () => {
-        expect(getAnalyticsPageUrl('desktop', { installKind: 'windows-zip', appName: 'Other App' }, '1.8.0')).toBe('/desktop/windows-zip/1.8.0/Other%20App')
+        expect(getAnalyticsPageUrl('web-standalone', { installKind: 'docker', appName: 'Other App' }, '1.8.0')).toBe('/web-standalone/docker/1.8.0/Other%20App')
     })
 })
 

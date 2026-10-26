@@ -7,7 +7,7 @@ const UMAMI_WEBSITE_ID = 'ed9e95fd-48af-4aac-a929-2a9f04ce9883'
 // /desktop/snap/0.41.0, so installs of the same kind count together.
 export function getAnalyticsPageUrl(build: string, installInfo: InstallInfo | null, version: string): string {
     const parts = [build]
-    if(build === 'desktop' || build === 'web-standalone') {
+    if(build === 'web-standalone') {
         parts.push(installInfo?.installKind || 'other')
     }
     parts.push(version)

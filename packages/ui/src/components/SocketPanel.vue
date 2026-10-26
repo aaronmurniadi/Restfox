@@ -719,7 +719,7 @@ async function connect(client: Client) {
 
         // browsers do not say why a connection failed, a rejected certificate looks like any other failure
         if (
-            (flags.value.isElectron || flags.value.isWebStandalone) &&
+            flags.value.isWebStandalone &&
             !flags.value.disableSSLVerification &&
             /^(wss|https):/i.test(clientUrlWithEnvironmentVariablesSubtituted)
         ) {

@@ -352,7 +352,6 @@ function addFetchSyncToVM(vm: QuickJSAsyncContext) {
         const savedDisableSSLVerification = localStorage.getItem(constants.LOCAL_STORAGE_KEY.DISABLE_SSL_VERIFICATION)
 
         const flags = {
-            electronSwitchToChromiumFetch: false,
             disableSSLVerification: savedDisableSSLVerification === 'true' ? true : false,
             requestTimeout: getSavedRequestTimeout(),
         }

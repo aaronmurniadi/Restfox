@@ -2,7 +2,6 @@ export {}
 
 declare global {
     interface Window {
-        electronIPC: any
         __EXTENSION_HOOK__: any
         createPrompt: any
         createConfirm: any
@@ -297,11 +296,9 @@ export interface Flags {
     browserExtensionEnabled: boolean
     isBrowser: boolean
     isWebStandalone: boolean
-    isElectron: boolean
     disableSSLVerification: boolean
     caCertificates: CACertificates | null
     proxy: ProxySettings | null
-    electronSwitchToChromiumFetch: boolean
     hidePasswordFields: boolean
     responseLineWrapping: boolean
     requestTimeout: number

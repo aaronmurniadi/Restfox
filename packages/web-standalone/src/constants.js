@@ -1,1 +1,1 @@
-export { default } from '../../electron/shared/constants.js'
+export { default } from '../../shared/constants.js'

@@ -21,8 +21,7 @@
                         <div style="font-weight: 500; margin-bottom: var(--label-margin-bottom)">Choose a folder</div>
                         <div style="display: flex;">
                             <input type="text" class="full-width-input" v-model="workspaceLocation" placeholder="Folder Path" required spellcheck="false" :disabled="duplicating">
-                            <button class="button" type="button" @click="openFolderDialog" :disabled="duplicating" v-if="isElectron">Choose</button>
-                            <button class="button" type="button" @click="showFolderBrowser = true" :disabled="duplicating" v-if="!isElectron">Browse</button>
+                            <button class="button" type="button" @click="showFolderBrowser = true" :disabled="duplicating">Browse</button>
                         </div>
                     </label>
                     <div style="margin-top: 0.5rem">Provide an empty folder</div>
@@ -62,10 +61,6 @@ export default {
     props: {
         showModal: Boolean,
         workspaceToDuplicate: Object,
-        isElectron: {
-            type: Boolean,
-            default: false
-        },
         isFileWorkspaceSupported: {
             type: Boolean,
             default: false
@@ -147,9 +142,6 @@ export default {
             this.showModalComp = false
 
             this.$toast.success('Workspace duplicated successfully')
-        },
-        async openFolderDialog() {
-            this.workspaceLocation = await window.electronIPC.openFolderSelectionDialog()
         },
     }
 }

@@ -840,7 +840,6 @@ async function requestOAuthTokenForSend(send: SendResolver) {
             const { headers, body } = createOAuthTokenRequest(clientId, clientSecret, auth.clientAuthentication, parameters)
 
             const response = await fetchWrapper(accessTokenUrl, 'POST', headers, body, abortController.signal, {
-                electronSwitchToChromiumFetch: props.flags.electronSwitchToChromiumFetch,
                 disableSSLVerification: props.flags.disableSSLVerification,
                 requestTimeout: getSavedRequestTimeout(),
             })
@@ -895,7 +894,6 @@ async function refreshOAuthTokenForSend(send: SendResolver) {
                 })
 
                 const response = await fetchWrapper(accessTokenUrl, 'POST', headers, body, abortController.signal, {
-                    electronSwitchToChromiumFetch: props.flags.electronSwitchToChromiumFetch,
                     disableSSLVerification: props.flags.disableSSLVerification,
                     requestTimeout: getSavedRequestTimeout(),
                 })

@@ -60,9 +60,6 @@ const webStandaloneIPC = {
 }
 
 function resolveFileIPC() {
-    if (import.meta.env.MODE === 'desktop-electron') {
-        return window.electronIPC
-    }
     if (import.meta.env.MODE === 'web-standalone') {
         return webStandaloneIPC
     }

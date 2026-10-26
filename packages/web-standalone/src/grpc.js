@@ -1,4 +1,4 @@
-import { createGrpc } from '../../electron/shared/grpc.js'
+import { createGrpc } from '../../shared/grpc.js'
 import grpc from '@grpc/grpc-js'
 import protobuf from 'protobufjs'
 import * as grpcSchema from './grpc-schema.js'

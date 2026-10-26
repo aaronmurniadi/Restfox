@@ -1,1 +1,1 @@
-export * from '../../electron/shared/proxy-tunnel.js'
+export * from '../../shared/proxy-tunnel.js'

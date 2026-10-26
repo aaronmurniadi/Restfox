@@ -1,1 +1,1 @@
-export * from '../../electron/shared/sent-headers-capture.js'
+export * from '../../shared/sent-headers-capture.js'

@@ -3,7 +3,7 @@ import { snippet } from '@codemirror/autocomplete'
 
 const autocompleteGeneralMethods = []
 
-if(import.meta.env.MODE === 'desktop-electron') {
+if(import.meta.env.MODE === 'web-standalone') {
     autocompleteGeneralMethods.push({
         label: 'await readFile(path)',
         type: 'function',

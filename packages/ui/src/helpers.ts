@@ -31,7 +31,7 @@ import {
     GrpcSettings,
 } from './global'
 import { ActionContext } from 'vuex'
-import { version } from '../../electron/package.json'
+import { version } from '../package.json'
 import constants from '@/constants'
 import { handleResponseTag } from '@/utils/tag'
 import { MASKED_PREVIEW, getPromptPreviewValue, handlePromptTag } from '@/utils/prompt-tag'
@@ -50,9 +50,9 @@ export function toTree(array: CollectionItem[]): CollectionItem[] {
     const map: Record<string, number> = {}
     let i
 
-    for(i = 0; i < array.length; i += 1) {
+    for (i = 0; i < array.length; i += 1) {
         map[array[i]._id] = i
-        if(array[i]._type === 'request_group') {
+        if (array[i]._type === 'request_group') {
             array[i].children = []
         }
     }
@@ -60,9 +60,9 @@ export function toTree(array: CollectionItem[]): CollectionItem[] {
     let node
     const res: any[] = []
 
-    for(i = 0; i < array.length; i += 1) {
+    for (i = 0; i < array.length; i += 1) {
         node = array[i]
-        if(node.parentId !== null) {
+        if (node.parentId !== null) {
             array[map[node.parentId]]?.children?.push(node)
         } else {
             res.push(node)
@@ -80,7 +80,7 @@ export function flattenTree(array: CollectionItem[]) {
         delete newItem.children
         level.push(newItem)
 
-        if(item.children) {
+        if (item.children) {
             level.push(...flattenTree(item.children))
         }
     })
@@ -107,7 +107,7 @@ async function substituteEnvironmentVariablesWith(
 ) {
     const { tagTrigger = true, noError = false, resolvePromptTags = true, promptTagsOnly = false, maskSecrets = false } = options
 
-    if(promptTagsOnly) {
+    if (promptTagsOnly) {
         environment = {}
     }
 
@@ -117,17 +117,17 @@ async function substituteEnvironmentVariablesWith(
     const secretPaths = secretPathsOf(environment)
 
     possibleEnvironmentObjectPaths.forEach(objectPath => {
-        let objectPathValue:any = getObjectPathValue(environment, objectPath)
+        let objectPathValue: any = getObjectPathValue(environment, objectPath)
 
         if (typeof objectPathValue === 'object') {
             objectPathValue = JSON.stringify(objectPathValue)
         }
 
         // a secret is sent as itself and hidden wherever the text is shown or saved, the same as a masked prompt
-        if(isSecretPath(objectPath, secretPaths)) {
-            if(maskSecrets) {
+        if (isSecretPath(objectPath, secretPaths)) {
+            if (maskSecrets) {
                 objectPathValue = MASKED_PREVIEW
-            } else if(objectPathValue !== undefined && objectPathValue !== null) {
+            } else if (objectPathValue !== undefined && objectPathValue !== null) {
                 send?.noteSecretValue?.(String(objectPathValue))
             }
         }
@@ -146,10 +146,10 @@ async function substituteEnvironmentVariablesWith(
         substitutedString = substitutedString.replaceAll(`{{ ${objectPath} }}`, objectPathValue)
     })
 
-    const handlePromptTagForString = async(parsedTag: ParsedResult) => send ? send.handlePromptTag(parsedTag) : getPromptPreviewValue(parsedTag, options.workspaceId)
+    const handlePromptTagForString = async (parsedTag: ParsedResult) => send ? send.handlePromptTag(parsedTag) : getPromptPreviewValue(parsedTag, options.workspaceId)
 
     // a send that was stopped sends no request of a response tag still to come in the text
-    const handleResponseTagForString = async(parsedTag: ParsedResult, tagTrigger: boolean, cacheId: string | undefined) => {
+    const handleResponseTagForString = async (parsedTag: ParsedResult, tagTrigger: boolean, cacheId: string | undefined) => {
         send?.throwIfStopped()
         return handleResponseTag(parsedTag, tagTrigger, cacheId, options.workspaceId)
     }
@@ -171,7 +171,7 @@ export class SendResolver {
     // their request, for a resolve the user did not ask for. Once signal aborts, as when the send is cancelled, no text
     // starts resolving and no prompt or response tag in a text still resolving goes on, so neither a prompt nor a
     // response tag's request comes after the cancel
-    constructor(readonly workspaceId: string, readonly tagTrigger = true, readonly signal: AbortSignal | null = null) {}
+    constructor(readonly workspaceId: string, readonly tagTrigger = true, readonly signal: AbortSignal | null = null) { }
 
     // response tags keep their response for the send by it
     readonly cacheId = nanoid()
@@ -197,7 +197,7 @@ export class SendResolver {
     async resolveUrl(environment: any, build: (resolveText: (text: string) => Promise<string>) => Promise<URL>) {
         const url = await build(text => this.resolve(environment, text, 'url'))
 
-        if(this.maskedUrl) {
+        if (this.maskedUrl) {
             try {
                 this.urlShown = await build(text => this.substitute(environment, text, () => undefined, { hideMasked: true }))
             } catch {
@@ -216,19 +216,19 @@ export class SendResolver {
             nameMasked = true
         }, { promptTagsOnly })
 
-        if(skip(nameResolved)) {
+        if (skip(nameResolved)) {
             return null
         }
 
         const nameResolvedMasked = nameMasked ? await this.substitute(environment, name, () => undefined, { hideMasked: true, promptTagsOnly }) : nameResolved
-        if(nameMasked) {
+        if (nameMasked) {
             this.omitHeader(nameResolved, nameResolvedMasked)
         }
 
         const valuesResolved: string[] = []
         const valuesResolvedMasked: string[] = []
 
-        for(const value of values) {
+        for (const value of values) {
             let valueMasked = false
             const valueResolved = await this.substitute(environment, value, () => {
                 valueMasked = true
@@ -250,7 +250,7 @@ export class SendResolver {
         })
 
         return () => {
-            if(masked) {
+            if (masked) {
                 this.markScriptReadMaskedPrompt()
             }
             return textResolved
@@ -279,8 +279,8 @@ export class SendResolver {
     // prompt value hidden. The longest first, so one inside another is hidden whole
     hideMaskedValues(text: string) {
         let hidden = text
-        for(const value of [...this.maskedValues].sort((a, b) => b.length - a.length)) {
-            if(value !== '') {
+        for (const value of [...this.maskedValues].sort((a, b) => b.length - a.length)) {
+            if (value !== '') {
                 hidden = hidden.split(value).join(MASKED_PREVIEW)
             }
         }
@@ -294,11 +294,11 @@ export class SendResolver {
     }
 
     get maskedPromptOmitted(): MaskedPromptOmitted | null {
-        if(this.scriptReadMaskedPrompt) {
+        if (this.scriptReadMaskedPrompt) {
             return { reason: 'script-read' }
         }
 
-        if(!this.maskedUrl && !this.maskedBody && this.maskedHeaders.length === 0) {
+        if (!this.maskedUrl && !this.maskedBody && this.maskedHeaders.length === 0) {
             return null
         }
 
@@ -313,7 +313,7 @@ export class SendResolver {
     omitMaskedPromptParts(response: RequestFinalResponse, request: CollectionItem): RequestFinalResponse {
         const maskedPromptOmitted = this.maskedPromptOmitted
 
-        if(maskedPromptOmitted === null) {
+        if (maskedPromptOmitted === null) {
             return response
         }
 
@@ -357,7 +357,7 @@ export class SendResolver {
                     masked = true
                     onMaskedPrompt()
                 }, hideMasked, this.signal)
-                if(masked) {
+                if (masked) {
                     this.maskedValues.add(value)
                 }
                 return value
@@ -366,17 +366,17 @@ export class SendResolver {
     }
 
     private throwIfStopped() {
-        if(this.signal?.aborted) {
+        if (this.signal?.aborted) {
             throw new Error('The send was stopped')
         }
     }
 
     private omit(part: SendPart) {
-        if(part === 'url') {
+        if (part === 'url') {
             this.maskedUrl = true
-        } else if(part === 'body') {
+        } else if (part === 'body') {
             this.maskedBody = true
-        } else if(part !== 'unsaved') {
+        } else if (part !== 'unsaved') {
             this.omitHeader(part.header, part.header)
         }
     }
@@ -387,7 +387,7 @@ export class SendResolver {
 
     // a header named first keeps its place, the later spelling of the same name is the same header
     private omitHeader(nameSent: string, nameShown: string) {
-        if(nameSent !== '' && !this.maskedHeaders.some(header => header.nameSent.toLowerCase() === nameSent.toLowerCase())) {
+        if (nameSent !== '' && !this.maskedHeaders.some(header => header.nameSent.toLowerCase() === nameSent.toLowerCase())) {
             this.maskedHeaders.push({ nameSent, nameShown })
         }
     }
@@ -429,7 +429,7 @@ export function getProxySettingsInUse(proxySettings: ProxySettings): Partial<Pro
 // the reason Custom's proxy URL cannot be used, or null. Without a scheme it is an HTTP proxy. Custom is not saved
 // until it can be, so picking it keeps the previous choice working while the URL is typed in
 export function getProxyUrlError(url: string): string | null {
-    if(url.trim() === '') {
+    if (url.trim() === '') {
         return 'Enter a proxy URL to use Custom'
     }
 
@@ -437,19 +437,19 @@ export function getProxyUrlError(url: string): string | null {
     // empty, as of any scheme they do not know
     const scheme = url.includes('://') ? url.slice(0, url.indexOf('://')).toLowerCase() : 'http'
 
-    if(!['http', 'https', 'socks5'].includes(scheme)) {
+    if (!['http', 'https', 'socks5'].includes(scheme)) {
         return 'Enter a proxy like http://proxy.example.com:8080, https:// and socks5:// work too'
     }
 
     try {
         const proxyUrl = new URL(`http://${url.includes('://') ? url.slice(url.indexOf('://') + 3) : url}`)
 
-        if(proxyUrl.hostname === '') {
+        if (proxyUrl.hostname === '') {
             return 'Enter a proxy like http://proxy.example.com:8080, https:// and socks5:// work too'
         }
 
         // Electron hands the proxy's login to Chromium's own connections from the fields, not from the URL
-        if(proxyUrl.username || proxyUrl.password) {
+        if (proxyUrl.username || proxyUrl.password) {
             return 'Enter the login in Username and Password, not in the URL'
         }
     } catch {
@@ -479,7 +479,7 @@ export function getSavedCACertificates(): Promise<CACertificates | null> {
 }
 
 export async function saveCACertificates(caCertificates: CACertificates | null) {
-    if(caCertificates) {
+    if (caCertificates) {
         await putSettingsFile(CA_CERTIFICATES_SETTINGS_FILE_ID, { fileName: caCertificates.fileName, content: caCertificates.certificates })
     } else {
         await deleteSettingsFile(CA_CERTIFICATES_SETTINGS_FILE_ID)
@@ -494,12 +494,12 @@ export async function caCertificatesFileToPEM(file: File): Promise<string> {
     const bytes = new Uint8Array(await file.arrayBuffer())
     const text = new TextDecoder().decode(bytes)
 
-    if(text.includes('-----BEGIN')) {
+    if (text.includes('-----BEGIN')) {
         return text
     }
 
     let binary = ''
-    for(const byte of bytes) {
+    for (const byte of bytes) {
         binary += String.fromCharCode(byte)
     }
 
@@ -514,7 +514,7 @@ const caCertificatesIdsRegisteredWithServer = new Map<string, string>()
 async function registerCACertificatesWithServer(certificates: string, registerAgain = false): Promise<string> {
     const registeredId = caCertificatesIdsRegisteredWithServer.get(certificates)
 
-    if(registeredId && !registerAgain) {
+    if (registeredId && !registerAgain) {
         return registeredId
     }
 
@@ -528,7 +528,7 @@ async function registerCACertificatesWithServer(certificates: string, registerAg
 
     const responseBody = await response.json().catch(() => ({}))
 
-    if(!response.ok) {
+    if (!response.ok) {
         throw new Error(responseBody.error ?? `The server could not use the CA certificates: ${response.status} ${response.statusText}`.trim())
     }
 
@@ -540,15 +540,7 @@ async function registerCACertificatesWithServer(certificates: string, registerAg
 // hands the certificates to the process that sends requests, and throws when it cannot use them. Returns web-standalone's
 // id for them. registerAgain skips the id kept from before, which a restarted server has forgotten
 export async function registerCACertificates(certificates: string | null, registerAgain = false): Promise<string | null> {
-    if(import.meta.env.MODE === 'desktop-electron') {
-        const { error } = await window.electronIPC.setCACertificates(certificates)
-
-        if(error) {
-            throw new Error(error)
-        }
-    }
-
-    if(import.meta.env.MODE === 'web-standalone' && certificates !== null) {
+    if (import.meta.env.MODE === 'web-standalone' && certificates !== null) {
         return registerCACertificatesWithServer(certificates, registerAgain)
     }
 
@@ -571,32 +563,17 @@ export async function registerProxySettings(proxySettings: ProxySettings): Promi
 
     const responseBody = await response.json().catch(() => ({}))
 
-    if(!response.ok) {
+    if (!response.ok) {
         throw new Error(responseBody.error ?? `The server could not use the proxy setting: ${response.status} ${response.statusText}`.trim())
     }
 
     return responseBody.id
 }
 
-// Electron pushes the messages of every send on one channel, a send's handler is found by its request id
-const electronRequestEventHandlers = new Map<string, (message: any) => void>()
-let electronRequestEventsSource: unknown = null
-
-function listenToElectronRequestEvents() {
-    if(electronRequestEventsSource === window.electronIPC) {
-        return
-    }
-    electronRequestEventsSource = window.electronIPC
-    window.electronIPC.onRequestEvent((requestId: string, message: any) => {
-        electronRequestEventHandlers.get(requestId)?.(message)
-    })
-}
-
 // The response arrives as head, then body chunks, then end. A caller that passes onResponseProgress is told of each as it
 // arrives and, when a timeout, a cancel or a failure cuts the body short after the head, gets what arrived with
 // bodyIncomplete set. Any other caller, and every failure before the head, gets the whole response or the error as before
 export async function fetchWrapper(url: URL, method: string, headers: Record<string, string>, body: any, abortControllerSignal: AbortSignal, flags: {
-    electronSwitchToChromiumFetch: boolean,
     disableSSLVerification: boolean,
     requestTimeout?: number
 }, onResponseProgress?: ResponseProgressHandler): Promise<RequestInitialResponse> {
@@ -607,11 +584,11 @@ export async function fetchWrapper(url: URL, method: string, headers: Record<str
     let onCallerAbort: (() => void) | undefined
     let signal = abortControllerSignal
 
-    if(requestTimeout > 0) {
+    if (requestTimeout > 0) {
         const timeoutController = new AbortController()
         onCallerAbort = () => timeoutController.abort()
 
-        if(abortControllerSignal.aborted) {
+        if (abortControllerSignal.aborted) {
             timeoutController.abort()
         } else {
             abortControllerSignal.addEventListener('abort', onCallerAbort, { once: true })
@@ -629,23 +606,23 @@ export async function fetchWrapper(url: URL, method: string, headers: Record<str
     const bodyIncompleteReason = (): BodyIncomplete => timedOut ? 'timedOut' : abortControllerSignal.aborted ? 'cancelled' : 'failed'
 
     // what arrived before the body was cut short. A cancel or a timeout is shown in the panel, a failure is also logged
-    const partialResponse = async(collector: ResponseBodyCollector, reason: BodyIncomplete, error: unknown, end: { timeTaken?: number, bodyTimeTaken?: number } = {}) => {
-        if(reason === 'failed') {
+    const partialResponse = async (collector: ResponseBodyCollector, reason: BodyIncomplete, error: unknown, end: { timeTaken?: number, bodyTimeTaken?: number } = {}) => {
+        if (reason === 'failed') {
             console.error(error)
         }
         return await collector.result(end, reason)
     }
 
     try {
-        if('__EXTENSION_HOOK__' in window && window.__EXTENSION_HOOK__ === 'Restfox CORS Helper Enabled') {
+        if ('__EXTENSION_HOOK__' in window && window.__EXTENSION_HOOK__ === 'Restfox CORS Helper Enabled') {
             let bodyHint: any = null
 
-            if(body instanceof FormData) {
+            if (body instanceof FormData) {
                 bodyHint = 'FormData'
                 body = Array.from(body.entries())
                 let i = 0
-                for(const item of body) {
-                    if(item[1] instanceof File) {
+                for (const item of body) {
+                    if (item[1] instanceof File) {
                         body[i][1] = {
                             name: item[1].name,
                             type: item[1].type,
@@ -656,7 +633,7 @@ export async function fetchWrapper(url: URL, method: string, headers: Record<str
                 }
             }
 
-            if(body instanceof File) {
+            if (body instanceof File) {
                 bodyHint = 'File'
                 body = {
                     name: body.name,
@@ -665,7 +642,7 @@ export async function fetchWrapper(url: URL, method: string, headers: Record<str
                 }
             }
 
-            if(signal.aborted) {
+            if (signal.aborted) {
                 throw new DOMException('The user aborted a request.', 'AbortError')
             }
 
@@ -676,7 +653,7 @@ export async function fetchWrapper(url: URL, method: string, headers: Record<str
 
                 // the first outcome wins, later messages for this request are dropped
                 const settle = (outcome: () => void) => {
-                    if(settled) {
+                    if (settled) {
                         return
                     }
                     settled = true
@@ -685,40 +662,40 @@ export async function fetchWrapper(url: URL, method: string, headers: Record<str
                     signal.onabort = null
                     try {
                         outcome()
-                    } catch(e) {
+                    } catch (e) {
                         reject(e)
                     }
                 }
 
                 const messageHandler = (message: MessageEvent) => {
                     // an extension before 1.0.9 in Chrome and 1.0.4 in Firefox sends its reply without the eventId
-                    if(message.data?.eventId !== undefined && message.data.eventId !== eventId) {
+                    if (message.data?.eventId !== undefined && message.data.eventId !== eventId) {
                         return
                     }
 
                     // an extension older than 1.1.0 ignores stream and sends the whole response at once
-                    if(message.data?.event === 'response') {
+                    if (message.data?.event === 'response') {
                         settle(() => resolve(message.data.eventData))
-                    } else if(message.data?.event === 'responseHead') {
+                    } else if (message.data?.event === 'responseHead') {
                         const head: ResponseHead = message.data.eventData
                         collector.head(head)
                         onResponseProgress?.({ type: 'head', head })
-                    } else if(message.data?.event === 'responseData') {
+                    } else if (message.data?.event === 'responseData') {
                         const bytes: Uint8Array = message.data.eventData
                         collector.push(bytes)
                         onResponseProgress?.({ type: 'data', bytes })
-                    } else if(message.data?.event === 'responseEnd') {
+                    } else if (message.data?.event === 'responseEnd') {
                         settle(() => collector.result(message.data.eventData).then(resolve, reject))
-                    } else if(message.data?.event === 'responseBodyError') {
+                    } else if (message.data?.event === 'responseBodyError') {
                         const { message: reason, timeTaken, bodyTimeTaken } = message.data.eventData
                         settle(() => {
-                            if(onResponseProgress) {
+                            if (onResponseProgress) {
                                 partialResponse(collector, 'failed', new Error(reason), { timeTaken, bodyTimeTaken }).then(resolve, reject)
                             } else {
                                 reject(new Error(reason))
                             }
                         })
-                    } else if(message.data?.event === 'responseError') {
+                    } else if (message.data?.event === 'responseError') {
                         settle(() => reject(message.data.eventData))
                     }
                 }
@@ -726,7 +703,7 @@ export async function fetchWrapper(url: URL, method: string, headers: Record<str
                 window.addEventListener('message', messageHandler)
 
                 signal.onabort = () => {
-                    if(settled) {
+                    if (settled) {
                         return
                     }
                     window.postMessage({
@@ -734,7 +711,7 @@ export async function fetchWrapper(url: URL, method: string, headers: Record<str
                         eventId,
                     })
                     settle(() => {
-                        if(onResponseProgress && collector.hasHead) {
+                        if (onResponseProgress && collector.hasHead) {
                             partialResponse(collector, bodyIncompleteReason(), null).then(resolve, reject)
                         } else {
                             reject(new DOMException('The user aborted a request.', 'AbortError'))
@@ -758,7 +735,7 @@ export async function fetchWrapper(url: URL, method: string, headers: Record<str
             })
         }
 
-        if(import.meta.env.MODE === 'web-standalone') {
+        if (import.meta.env.MODE === 'web-standalone') {
             const proxyHeaders: Record<string, string> = {
                 'x-proxy-flag-disable-ssl-verification': flags.disableSSLVerification.toString(),
                 'x-proxy-req-url': url.toString(),
@@ -774,7 +751,7 @@ export async function fetchWrapper(url: URL, method: string, headers: Record<str
             // Settings > Proxy, encoded since a header value holds only Latin-1 and a password may not. Never saved is
             // System, which the server also assumes when the header is missing
             const proxySettings = getSavedProxySettings()
-            if(proxySettings) {
+            if (proxySettings) {
                 proxyHeaders['x-proxy-flag-proxy'] = encodeURIComponent(JSON.stringify(getProxySettingsInUse(proxySettings)))
             }
 
@@ -785,7 +762,7 @@ export async function fetchWrapper(url: URL, method: string, headers: Record<str
             const caCertificates = await getSavedCACertificates()
 
             // the frames reply as is, any other reply, which is everything before the upstream head, read as JSON
-            const fetchFromProxy = async(caCertificatesId: string | null) => {
+            const fetchFromProxy = async (caCertificatesId: string | null) => {
                 const response = await fetch('/proxy', {
                     method: 'POST',
                     headers: caCertificatesId ? { ...proxyHeaders, 'x-proxy-flag-ca-certificates-id': caCertificatesId } : proxyHeaders,
@@ -793,7 +770,7 @@ export async function fetchWrapper(url: URL, method: string, headers: Record<str
                     signal
                 })
 
-                if((response.headers.get('content-type') ?? '').startsWith(PROXY_FRAMES_CONTENT_TYPE)) {
+                if ((response.headers.get('content-type') ?? '').startsWith(PROXY_FRAMES_CONTENT_TYPE)) {
                     return response
                 }
 
@@ -806,11 +783,11 @@ export async function fetchWrapper(url: URL, method: string, headers: Record<str
             let responseBody = await fetchFromProxy(caCertificatesId)
 
             // the server restarted and forgot the certificates
-            if(!(responseBody instanceof Response) && responseBody.event === 'caCertificatesNotFound' && caCertificates) {
+            if (!(responseBody instanceof Response) && responseBody.event === 'caCertificatesNotFound' && caCertificates) {
                 responseBody = await fetchFromProxy(await registerCACertificatesWithServer(caCertificates.certificates, true))
             }
 
-            if(responseBody instanceof Response) {
+            if (responseBody instanceof Response) {
                 const textDecoder = new TextDecoder()
                 // the last frame, set by the frame callback
                 const last: {
@@ -820,37 +797,37 @@ export async function fetchWrapper(url: URL, method: string, headers: Record<str
 
                 try {
                     await readProxyFrames(responseBody.body!, frame => {
-                        if(frame.type === PROXY_FRAME_TYPE.HEAD) {
+                        if (frame.type === PROXY_FRAME_TYPE.HEAD) {
                             const head: ResponseHead = JSON.parse(textDecoder.decode(frame.payload))
                             collector.head(head)
                             onResponseProgress?.({ type: 'head', head })
-                        } else if(frame.type === PROXY_FRAME_TYPE.DATA) {
+                        } else if (frame.type === PROXY_FRAME_TYPE.DATA) {
                             collector.push(frame.payload)
                             onResponseProgress?.({ type: 'data', bytes: frame.payload })
-                        } else if(frame.type === PROXY_FRAME_TYPE.END) {
+                        } else if (frame.type === PROXY_FRAME_TYPE.END) {
                             last.end = JSON.parse(textDecoder.decode(frame.payload))
-                        } else if(frame.type === PROXY_FRAME_TYPE.ERROR) {
+                        } else if (frame.type === PROXY_FRAME_TYPE.ERROR) {
                             last.failure = JSON.parse(textDecoder.decode(frame.payload))
                         }
                     })
-                } catch(e) {
-                    if(!onResponseProgress || !collector.hasHead) {
+                } catch (e) {
+                    if (!onResponseProgress || !collector.hasHead) {
                         throw e
                     }
                     return await partialResponse(collector, bodyIncompleteReason(), e)
                 }
 
-                if(last.end !== null) {
+                if (last.end !== null) {
                     return await collector.result(last.end)
                 }
 
                 // the server's timeout or a failed upstream ends the frames with an error frame, any other end is a lost connection
                 const error = new Error(last.failure?.message ?? 'The connection to the server closed before the response ended')
-                if(last.failure?.timedOut) {
+                if (last.failure?.timedOut) {
                     error.name = 'TimeoutError'
                 }
 
-                if(!onResponseProgress || !collector.hasHead) {
+                if (!onResponseProgress || !collector.hasHead) {
                     throw error
                 }
 
@@ -858,124 +835,15 @@ export async function fetchWrapper(url: URL, method: string, headers: Record<str
             }
 
             return await new Promise((resolve, reject) => {
-                if(responseBody.event === 'response') {
+                if (responseBody.event === 'response') {
                     responseBody.eventData.buffer = new Uint8Array(responseBody.eventData.buffer).buffer
                     resolve(responseBody.eventData)
                 }
 
-                if(responseBody.event === 'responseError') {
+                if (responseBody.event === 'responseError') {
                     responseBody.eventData = new Error(responseBody.eventData)
                     reject(responseBody.eventData)
                 }
-            })
-        }
-
-        if (import.meta.env.MODE === 'desktop-electron' && !flags.electronSwitchToChromiumFetch) {
-            let bodyHint: any = null
-
-            if(body instanceof FormData) {
-                bodyHint = 'FormData'
-                body = Array.from(body.entries())
-                let i = 0
-                for(const item of body) {
-                    if(item[1] instanceof File) {
-                        body[i][1] = {
-                            name: item[1].name,
-                            type: item[1].type,
-                            buffer: Array.from(new Uint8Array(await item[1].arrayBuffer()))
-                        }
-                    }
-                    i++
-                }
-            }
-
-            if(body instanceof File) {
-                bodyHint = 'File'
-                body = {
-                    name: body.name,
-                    type: body.type,
-                    buffer: Array.from(new Uint8Array(await body.arrayBuffer()))
-                }
-            }
-
-            if(signal.aborted) {
-                throw new DOMException('The user aborted a request.', 'AbortError')
-            }
-
-            listenToElectronRequestEvents()
-
-            return await new Promise<RequestInitialResponse>((resolve, reject) => {
-                const requestId = nanoid()
-                const collector = new ResponseBodyCollector(Date.now())
-                let settled = false
-
-                // the first outcome wins, later pushes for this request are dropped
-                const settle = (outcome: () => void) => {
-                    if(settled) {
-                        return
-                    }
-                    settled = true
-                    electronRequestEventHandlers.delete(requestId)
-                    // the store keeps the signal until the tab's next send, and this handler holds every received chunk
-                    signal.onabort = null
-                    try {
-                        outcome()
-                    } catch(e) {
-                        reject(e)
-                    }
-                }
-
-                signal.onabort = () => {
-                    if(settled) {
-                        return
-                    }
-                    window.electronIPC.cancelRequest(requestId)
-                    settle(() => {
-                        if(onResponseProgress && collector.hasHead) {
-                            partialResponse(collector, bodyIncompleteReason(), null).then(resolve, reject)
-                        } else {
-                            reject(new DOMException('The user aborted a request.', 'AbortError'))
-                        }
-                    })
-                }
-
-                // the response arrives only as pushed messages, the invoke reply can land between them and carries nothing
-                electronRequestEventHandlers.set(requestId, (message: any) => {
-                    if(message.event === 'head') {
-                        const head: ResponseHead = message.eventData
-                        collector.head(head)
-                        onResponseProgress?.({ type: 'head', head })
-                    } else if(message.event === 'data') {
-                        const bytes: Uint8Array = message.eventData instanceof Uint8Array ? message.eventData : new Uint8Array(message.eventData)
-                        collector.push(bytes)
-                        onResponseProgress?.({ type: 'data', bytes })
-                    } else if(message.event === 'end') {
-                        settle(() => collector.result(message.eventData).then(resolve, reject))
-                    } else if(message.event === 'bodyError') {
-                        const { message: reason, timeTaken, bodyTimeTaken } = message.eventData
-                        settle(() => {
-                            if(onResponseProgress) {
-                                partialResponse(collector, 'failed', new Error(reason), { timeTaken, bodyTimeTaken }).then(resolve, reject)
-                            } else {
-                                reject(new Error(reason))
-                            }
-                        })
-                    } else if(message.event === 'responseError') {
-                        settle(() => reject(new Error(message.eventData)))
-                    }
-                })
-
-                window.electronIPC.sendRequest({
-                    requestId,
-                    url: url.toString(),
-                    method,
-                    headers,
-                    body,
-                    bodyHint,
-                    disableSSLVerification: flags.disableSSLVerification,
-                }).catch((error: any) => {
-                    settle(() => reject(error))
-                })
             })
         }
 
@@ -1001,15 +869,15 @@ export async function fetchWrapper(url: URL, method: string, headers: Record<str
         onResponseProgress?.({ type: 'head', head })
 
         try {
-            if(response.body !== null) {
+            if (response.body !== null) {
                 const reader = response.body.getReader()
-                for(let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
+                for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
                     collector.push(chunk.value)
                     onResponseProgress?.({ type: 'data', bytes: chunk.value })
                 }
             }
-        } catch(e) {
-            if(!onResponseProgress) {
+        } catch (e) {
+            if (!onResponseProgress) {
                 throw e
             }
             return await partialResponse(collector, bodyIncompleteReason(), e)
@@ -1021,18 +889,18 @@ export async function fetchWrapper(url: URL, method: string, headers: Record<str
             timeTaken: endTime - startTime,
             bodyTimeTaken: endTime - headEndTime,
         })
-    } catch(e) {
-        if(timedOut) {
+    } catch (e) {
+        if (timedOut) {
             const error = new Error(`Request timed out after ${requestTimeout} ms`)
             error.name = 'TimeoutError'
             throw error
         }
         throw e
     } finally {
-        if(timeoutId !== undefined) {
+        if (timeoutId !== undefined) {
             clearTimeout(timeoutId)
         }
-        if(onCallerAbort !== undefined) {
+        if (onCallerAbort !== undefined) {
             abortControllerSignal.removeEventListener('abort', onCallerAbort)
         }
     }
@@ -1058,7 +926,7 @@ export async function createRequestData(
     // keyed by the sent name, so masked names that become identical still keep their own entries
     headersMasked?: Map<string, [string, string]>
 ): Promise<CreateRequestDataReturn> {
-    for(const plugin of plugins) {
+    for (const plugin of plugins) {
         const { expose } = await createRequestContextForPlugin(send, request, environment, setEnvironmentVariable, state.testResults, plugin.collectionId)
 
         state.currentPlugin = plugin.type === 'script' ? 'Script: Pre Request' : `${plugin.name} (Pre Request)`
@@ -1094,9 +962,9 @@ export async function createRequestData(
         }
     }
 
-    if(request.body) {
-        if(request.body.mimeType === 'multipart/form-data') {
-            if('params' in request.body) {
+    if (request.body) {
+        if (request.body.mimeType === 'multipart/form-data') {
+            if ('params' in request.body) {
                 const formData = new FormData()
                 if (request.body.params) {
                     for (const param of request.body.params.filter(item => !item.disabled)) {
@@ -1119,11 +987,11 @@ export async function createRequestData(
             }
         }
 
-        if(request.body.mimeType === 'text/plain' || request.body.mimeType === 'application/json' || request.body.mimeType === 'application/graphql') {
+        if (request.body.mimeType === 'text/plain' || request.body.mimeType === 'application/json' || request.body.mimeType === 'application/graphql') {
             body = await send.resolve(environment, request.body.text ?? '', 'body')
         }
 
-        if(request.body.mimeType === 'application/octet-stream' && request.body.fileName instanceof File) {
+        if (request.body.mimeType === 'application/octet-stream' && request.body.fileName instanceof File) {
             body = request.body.fileName
         }
     }
@@ -1134,10 +1002,10 @@ export async function createRequestData(
     const requestUrl = request.url!
     const requestUrlWithoutQuery = request.parameters ? requestUrl.split('?')[0] : requestUrl
 
-    const buildUrl = async(resolveText: (text: string) => Promise<string>) => {
+    const buildUrl = async (resolveText: (text: string) => Promise<string>) => {
         let urlWithEnvironmentVariablesSubstituted = await resolveText(requestUrlWithoutQuery)
 
-        if(request.pathParameters) {
+        if (request.pathParameters) {
             for (const pathParameter of request.pathParameters.filter(item => !item.disabled)) {
                 const paramName = await resolveText(pathParameter.name)
                 const paramValue = await resolveText(pathParameter.value)
@@ -1150,7 +1018,7 @@ export async function createRequestData(
 
         const builtUrl = new URL(urlWithEnvironmentVariablesSubstituted)
 
-        if(request.parameters) {
+        if (request.parameters) {
             const enabledParams = request.parameters.filter(item => !item.disabled)
             const queryParts: string[] = []
 
@@ -1173,7 +1041,7 @@ export async function createRequestData(
             }
 
             // appended as text instead of through url.searchParams, which would re-encode the query the variable resolved to
-            if(enabledParams.length > 0) {
+            if (enabledParams.length > 0) {
                 builtUrl.search = builtUrl.search + (builtUrl.search ? '&' : '?') + queryParts.join('&')
             }
         }
@@ -1190,16 +1058,16 @@ export async function createRequestData(
     const setHeader = (headerName: string, headerValue: string, headerNameMasked = headerName, headerValueMasked = headerValue) => {
         const existingHeaderName = findHeaderName(headers, headerName)
 
-        if(existingHeaderName !== undefined && existingHeaderName !== headerName) {
-            for(const [name, value] of Object.entries(headers)) {
+        if (existingHeaderName !== undefined && existingHeaderName !== headerName) {
+            for (const [name, value] of Object.entries(headers)) {
                 delete headers[name]
                 headers[name === existingHeaderName ? headerName : name] = value
             }
         }
 
         headers[headerName] = headerValue
-        if(headersMasked) {
-            if(existingHeaderName !== undefined) {
+        if (headersMasked) {
+            if (existingHeaderName !== undefined) {
                 headersMasked.delete(existingHeaderName)
             }
             headersMasked.set(headerName, [headerNameMasked, headerValueMasked])
@@ -1207,27 +1075,27 @@ export async function createRequestData(
     }
 
     // sent as written, as they always were, apart from prompt tags
-    if('GLOBAL_HEADERS' in environment) {
-        for(const [name, value] of Object.entries(environment.GLOBAL_HEADERS)) {
+    if ('GLOBAL_HEADERS' in environment) {
+        for (const [name, value] of Object.entries(environment.GLOBAL_HEADERS)) {
             const header = typeof value === 'string' ? await send.resolveHeader(environment, name, [value], () => false, true) : null
             setHeader(header?.nameResolved ?? name, header?.valuesResolved[0] ?? value as string, header?.nameResolvedMasked ?? name, header?.valuesResolvedMasked[0] ?? value as string)
         }
     }
 
-    if('headers' in request && request.headers !== undefined) {
+    if ('headers' in request && request.headers !== undefined) {
         const enabledHeaders = request.headers.filter(header => !header.disabled)
-        for(const header of enabledHeaders) {
+        for (const header of enabledHeaders) {
             // a header without a name is not sent, nor content-type for multipart/form-data
             const resolvedHeader = await send.resolveHeader(environment, header.name, [header.value], headerName => headerName === '' || (body instanceof FormData && headerName.toLowerCase() === 'content-type'))
 
-            if(resolvedHeader === null) {
+            if (resolvedHeader === null) {
                 continue
             }
 
             const { nameResolved: headerName, valuesResolved: [headerValue] } = resolvedHeader
 
             const existingHeaderName = findHeaderName(headers, headerName)
-            if(existingHeaderName !== undefined) {
+            if (existingHeaderName !== undefined) {
                 //allow multiple headers with the same name by concatenating the values with ", " | https://www.rfc-editor.org/rfc/rfc9110.html#section-5.2
                 setHeader(headerName, `${headers[existingHeaderName]}, ${headerValue}`, resolvedHeader.nameResolvedMasked, `${headersMasked?.get(existingHeaderName)?.[1] ?? headers[existingHeaderName]}, ${resolvedHeader.valuesResolvedMasked[0]}`)
             } else {
@@ -1236,16 +1104,16 @@ export async function createRequestData(
         }
     }
 
-    for(const [name, values] of Object.entries(parentHeaders)) {
+    for (const [name, values] of Object.entries(parentHeaders)) {
         // the request's own header of the same name wins
         const parentHeader = await send.resolveHeader(environment, name, values, headerName => findHeaderName(headers, headerName) !== undefined)
 
-        if(parentHeader !== null) {
+        if (parentHeader !== null) {
             setHeader(parentHeader.nameResolved, parentHeader.valuesResolved.join(', '), parentHeader.nameResolvedMasked, parentHeader.valuesResolvedMasked.join(', '))
         }
     }
 
-    const setAuthentication = async(authentication: RequestAuthentication) => {
+    const setAuthentication = async (authentication: RequestAuthentication) => {
         const existingHeaderName = findHeaderName(headers, 'Authorization')
         let authorizationMasked: string | undefined
         const authorization = await resolveAuthentication(send, authentication, environment, existingHeaderName ?? 'Authorization', headersMasked ? value => {
@@ -1254,7 +1122,7 @@ export async function createRequestData(
 
         // a typed Authorization header and the Auth tab's are sent together, as the transports joined them when the
         // typed one was a separate lowercase key
-        if(existingHeaderName !== undefined) {
+        if (existingHeaderName !== undefined) {
             const headerMasked = headersMasked?.get(existingHeaderName)
             setHeader(existingHeaderName, `${headers[existingHeaderName]}, ${authorization}`, headerMasked?.[0] ?? existingHeaderName, authorizationMasked === '' ? '' : `${headerMasked?.[1] ?? headers[existingHeaderName]}, ${authorizationMasked ?? authorization}`)
         } else {
@@ -1263,9 +1131,9 @@ export async function createRequestData(
         }
     }
 
-    if(request.authentication && hasOwnAuthentication(request.authentication)) {
+    if (request.authentication && hasOwnAuthentication(request.authentication)) {
         await setAuthentication(request.authentication)
-    } else if(getAuthenticationType(request.authentication) === 'inherit' && parentAuthentication && hasOwnAuthentication(parentAuthentication)) {
+    } else if (getAuthenticationType(request.authentication) === 'inherit' && parentAuthentication && hasOwnAuthentication(parentAuthentication)) {
         await setAuthentication(parentAuthentication)
     }
 
@@ -1279,7 +1147,7 @@ export async function createRequestData(
 // says what a masked prompt left out of a saved request and why, such as "Left out because a masked prompt was used
 // there: the Authorization header and the body"
 export function describeMaskedPromptOmitted(maskedPromptOmitted: MaskedPromptOmitted) {
-    if(maskedPromptOmitted.reason === 'script-read') {
+    if (maskedPromptOmitted.reason === 'script-read') {
         return 'Left out because a script read a masked prompt: the URL (shown as written), the headers, the body and the test names and errors'
     }
 
@@ -1305,7 +1173,7 @@ function setDefaultUserAgent(headers: Record<string, string>) {
 
 // names the plugin and the line that failed, and the error it threw
 function describePluginError(e: any, currentPlugin: string | null): { description: string, error: string } {
-    if(e?.message === 'Unable to parse plugin') {
+    if (e?.message === 'Unable to parse plugin') {
         return {
             description: `Error in Plugin "${currentPlugin}"${e.lineNumber !== '' ? ' at line number ' + e.lineNumber : ''}`,
             error: `${e.originalError.name}: ${e.originalError.message}`,
@@ -1328,7 +1196,6 @@ export async function handleRequest(
     workspaceLocation: string | null,
     abortControllerSignal: AbortSignal,
     flags: {
-        electronSwitchToChromiumFetch: boolean,
         disableSSLVerification: boolean,
         requestTimeout?: number
     },
@@ -1379,10 +1246,10 @@ export async function handleRequest(
         ]
 
         // a browser fetch drops these, so they are removed only when the configured headers stand in for the sent ones
-        if(!headersSent) {
+        if (!headersSent) {
             forbiddenHeaders.forEach(forbiddenHeader => {
                 const headerName = findHeaderName(headersToSave, forbiddenHeader)
-                if(headerName !== undefined) {
+                if (headerName !== undefined) {
                     delete headersToSave[headerName]
                 }
             })
@@ -1417,24 +1284,24 @@ export async function handleRequest(
             testResults: [],
         }
 
-        if(request.parameters) {
+        if (request.parameters) {
             responseToSend.request.original.parameters = JSON.parse(JSON.stringify(request.parameters))
         }
 
-        if(request.pathParameters) {
+        if (request.pathParameters) {
             responseToSend.request.original.pathParameters = JSON.parse(JSON.stringify(request.pathParameters))
         }
 
-        if(request.headers) {
+        if (request.headers) {
             responseToSend.request.original.headers = JSON.parse(JSON.stringify(request.headers))
         }
 
-        if(request.authentication) {
+        if (request.authentication) {
             responseToSend.request.original.authentication = JSON.parse(JSON.stringify(request.authentication))
         }
 
         // only set on a body cut short, so a complete one is saved as before
-        if(response.bodyIncomplete !== undefined) {
+        if (response.bodyIncomplete !== undefined) {
             responseToSend.bodyIncomplete = response.bodyIncomplete
         }
 
@@ -1445,7 +1312,7 @@ export async function handleRequest(
             || (!isSendReplaced(abortControllerSignal) && ['events', 'lines'].includes(getStreamView(getResponseContentType(responseToSend))))
         const postRequestPlugins = runsPostRequestScripts ? plugins : []
 
-        for(const plugin of postRequestPlugins) {
+        for (const plugin of postRequestPlugins) {
             const { expose } = createResponseContextForPlugin(responseToSend, environment, setEnvironmentVariable, state.testResults, plugin.collectionId, send)
 
             state.currentPlugin = plugin.type === 'script' ? 'Script: Post Request' : `${plugin.name} (Post Request)`
@@ -1458,11 +1325,11 @@ export async function handleRequest(
                 })
 
                 responseToSend = { ...responseToSend, buffer: expose.context.response.getBody() }
-            } catch(e: any) {
+            } catch (e: any) {
                 // An endless stream only ends cut short, so scripts run on what arrived. One that fails on it, such as
                 // by reading half a JSON body, keeps the received part and is reported as a failed test instead. The
                 // scripts after it do not run, as after an error on a complete body
-                if(responseToSend.bodyIncomplete === undefined) {
+                if (responseToSend.bodyIncomplete === undefined) {
                     throw e
                 }
                 const pluginError = describePluginError(e, state.currentPlugin)
@@ -1476,33 +1343,33 @@ export async function handleRequest(
 
         // after the scripts, which still read the resolved url
         return send.omitMaskedPromptParts(responseToSend, request)
-    } catch(e: any) {
+    } catch (e: any) {
         // a cancel the user asked for is reported in the panel, every other failure also goes to Logs
-        if(e?.name !== 'AbortError') {
+        if (e?.name !== 'AbortError') {
             console.error(e)
         }
 
         let error = 'Error: Request failed'
 
-        if(typeof e !== 'string')  {
-            if(e.message.includes('Invalid URL')) {
+        if (typeof e !== 'string') {
+            if (e.message.includes('Invalid URL')) {
                 error = 'Error: Invalid URL'
             }
 
-            if(e.name === 'TimeoutError') {
+            if (e.name === 'TimeoutError') {
                 error = 'Error: Request Timed Out'
             }
 
-            if(e.name === 'AbortError') {
+            if (e.name === 'AbortError') {
                 error = 'Error: Request Cancelled'
             }
 
-            if(e.message === 'Unable to parse plugin') {
+            if (e.message === 'Unable to parse plugin') {
                 const pluginError = describePluginError(e, state.currentPlugin)
                 error = `${pluginError.description}\n\n${pluginError.error}`
             }
 
-            if(e.cause === 'display-error') {
+            if (e.cause === 'display-error') {
                 error = `Error: ${e.message}`
             }
         }
@@ -1526,7 +1393,6 @@ export async function fetchGraphQLSchema(
     parentAuthentication: RequestAuthentication | undefined,
     abortControllerSignal: AbortSignal,
     flags: {
-        electronSwitchToChromiumFetch: boolean,
         disableSSLVerification: boolean,
         requestTimeout?: number
     }
@@ -1540,7 +1406,7 @@ export async function fetchGraphQLSchema(
 
     setDefaultUserAgent(headers)
 
-    if(findHeaderName(headers, 'content-type') === undefined) {
+    if (findHeaderName(headers, 'content-type') === undefined) {
         headers['Content-Type'] = 'application/json'
     }
 
@@ -1550,17 +1416,17 @@ export async function fetchGraphQLSchema(
 
     try {
         result = JSON.parse(new TextDecoder().decode(response.buffer))
-    } catch {}
+    } catch { }
 
-    if(Array.isArray(result?.errors) && result.errors.length > 0) {
+    if (Array.isArray(result?.errors) && result.errors.length > 0) {
         throw new Error(result.errors.map((error: any) => error.message).join('\n'))
     }
 
-    if(response.status < 200 || response.status > 299) {
+    if (response.status < 200 || response.status > 299) {
         throw new Error(`${response.status} ${response.statusText}`.trim())
     }
 
-    if(!Array.isArray(result?.data?.__schema?.types)) {
+    if (!Array.isArray(result?.data?.__schema?.types)) {
         throw new Error('The response has no schema')
     }
 
@@ -1568,11 +1434,11 @@ export async function fetchGraphQLSchema(
 }
 
 function convertInsomniaAuthToRestfoxAuth(insomniaAuthentication: any): RequestAuthentication {
-    if(!insomniaAuthentication || Object.keys(insomniaAuthentication).length === 0) {
+    if (!insomniaAuthentication || Object.keys(insomniaAuthentication).length === 0) {
         return { type: INHERITED_AUTHENTICATION_TYPE }
     }
 
-    if(insomniaAuthentication.type === 'oauth2') {
+    if (insomniaAuthentication.type === 'oauth2') {
         // Insomnia names these OAuth 2.0 fields differently, see AuthTypeOAuth2 in Insomnia's packages/insomnia-data/src/models/request.ts
         const { redirectUrl, code, usePkce, tokenPrefix, accessToken, credentialsInBody, ...authentication } = insomniaAuthentication
         const renamedFields: [string, keyof RequestAuthentication, unknown][] = [
@@ -1583,14 +1449,14 @@ function convertInsomniaAuthToRestfoxAuth(insomniaAuthentication: any): RequestA
             ['accessToken', 'token', accessToken],
         ]
 
-        for(const [, restfoxKey, value] of renamedFields) {
-            if(value !== undefined && value !== '' && authentication[restfoxKey] === undefined) {
+        for (const [, restfoxKey, value] of renamedFields) {
+            if (value !== undefined && value !== '' && authentication[restfoxKey] === undefined) {
                 authentication[restfoxKey] = value
             }
         }
 
         // Insomnia sends the OAuth 2.0 client credentials in the Basic Authorization header unless credentialsInBody is set
-        if(authentication.clientAuthentication === undefined) {
+        if (authentication.clientAuthentication === undefined) {
             authentication.clientAuthentication = credentialsInBody ? 'body' : 'header'
         }
 
@@ -1616,17 +1482,17 @@ function convertInsomniaV5ToV4Resources(file: any): any[] {
     const resources: any[] = [{ _id: workspaceId, _type: 'workspace', parentId: null, name: file.name, description: file.meta?.description }]
 
     const walk = (items: any[] | undefined, parentId: string) => {
-        for(const item of items ?? []) {
+        for (const item of items ?? []) {
             const _id = item.meta?.id ?? nanoid()
             const common = { _id, parentId, name: item.name, description: item.meta?.description }
             const isFolder = !('method' in item) && !('url' in item) && !('reflectionApi' in item)
 
-            if(isFolder) {
+            if (isFolder) {
                 resources.push({ ...common, _type: 'request_group', headers: item.headers, authentication: item.authentication, environment: item.environment })
                 walk(item.children, _id)
-            } else if('method' in item) {
+            } else if ('method' in item) {
                 resources.push({ ...common, _type: 'request', url: item.url, method: item.method, body: item.body ?? {}, parameters: item.parameters, headers: item.headers, authentication: item.authentication, pathParameters: item.pathParameters })
-            } else if('reflectionApi' in item) {
+            } else if ('reflectionApi' in item) {
                 // v5 leaves the proto files out, so the protoFileId names none in the file and the request uses server
                 // reflection until files are added
                 resources.push({ ...common, _type: 'grpc_request', url: item.url, protoFileId: item.protoFileId, protoMethodName: item.protoMethodName, metadata: item.metadata, body: item.body })
@@ -1646,7 +1512,7 @@ function convertInsomniaV5ToV4Resources(file: any): any[] {
 function getInsomniaProtoFiles(resources: any[], protoFileId: string | undefined): GrpcProtoFile[] {
     const protoFile = resources.find(resource => resource._type === 'proto_file' && resource._id === protoFileId)
 
-    if(!protoFile) {
+    if (!protoFile) {
         return []
     }
 
@@ -1655,7 +1521,7 @@ function getInsomniaProtoFiles(resources: any[], protoFileId: string | undefined
     // the folders from the top one down to the file's
     const getDirectories = (resource: any) => {
         const directories: any[] = []
-        for(let directory = protoDirectories.get(resource.parentId); directory; directory = protoDirectories.get(directory.parentId)) {
+        for (let directory = protoDirectories.get(resource.parentId); directory; directory = protoDirectories.get(directory.parentId)) {
             directories.unshift(directory)
         }
         return directories
@@ -1665,7 +1531,7 @@ function getInsomniaProtoFiles(resources: any[], protoFileId: string | undefined
 
     const rootDirectory = getDirectories(protoFile)[0]
 
-    if(!rootDirectory) {
+    if (!rootDirectory) {
         return [{ path: protoFile.name, text: protoFile.protoText ?? '' }]
     }
 
@@ -1682,19 +1548,19 @@ const URL_SCHEME_REGEX = /^[a-z][a-z0-9+.-]*:\/\//i
 // variable is left as it is, as its value is set in Restfox, where the scheme and port can go too
 function convertInsomniaGrpcUrl(url: string) {
     const address = url.trim()
-    if(address === '' || /^{[{%]/.test(address) || /^grpcs:\/\//i.test(address)) {
+    if (address === '' || /^{[{%]/.test(address) || /^grpcs:\/\//i.test(address)) {
         return url
     }
     // a variable or tag further on, such as the port, stands in as a number, which leaves the scheme and host as typed
     const target = parseGrpcTarget(address.replace(/{{[^{}]*}}|{%[^{}]*%}/g, '1'))
-    if(!isGrpcTarget(target)) {
+    if (!isGrpcTarget(target)) {
         return url
     }
     const rest = address.replace(URL_SCHEME_REGEX, '')
     const hostAndPort = rest.split('/')[0]
     const hasPort = /:[^:\]]+$/.test(hostAndPort)
     // a variable in the host may hold the port too
-    if((hasPort && !target.tls) || (!hasPort && /{[{%]/.test(hostAndPort))) {
+    if ((hasPort && !target.tls) || (!hasPort && /{[{%]/.test(hostAndPort))) {
         return url
     }
     return `grpc://${hasPort ? rest : `${hostAndPort}:443${rest.slice(hostAndPort.length)}`}`
@@ -1707,13 +1573,13 @@ function convertInsomniaGrpcRequest(item: any, resources: any[]): Omit<Collectio
 
     // such as /demo.v1.Greeter/SayHello, or /Greeter/SayHello for a proto file without a package
     const methodPath = /^\/?([^/]+)\/([^/]+)$/.exec(item.protoMethodName ?? '')
-    if(methodPath) {
+    if (methodPath) {
         grpc.service = methodPath[1]
         grpc.method = methodPath[2]
     }
 
     const protoFiles = getInsomniaProtoFiles(resources, item.protoFileId)
-    if(protoFiles.length > 0) {
+    if (protoFiles.length > 0) {
         grpc.protoFiles = protoFiles
     }
 
@@ -1737,14 +1603,14 @@ export type InsomniaGrpcMessageConverter = (spec: { protoFiles: GrpcProtoFile[],
 // as {"value": true}. convertGrpcMessage rewrites them from the request's .proto files. Without them, or where the
 // builds cannot run gRPC, the message is kept as written
 async function convertInsomniaGrpcMessages(collection: CollectionItem[], convertGrpcMessage: InsomniaGrpcMessageConverter) {
-    for(const item of flattenTree(collection) as CollectionItem[]) {
+    for (const item of flattenTree(collection) as CollectionItem[]) {
         const { protoFiles, service, method } = item.grpc ?? {}
-        if(item._type !== 'grpc' || !protoFiles?.length || !service || !method || typeof item.body?.text !== 'string') {
+        if (item._type !== 'grpc' || !protoFiles?.length || !service || !method || typeof item.body?.text !== 'string') {
             continue
         }
         try {
             item.body.text = await convertGrpcMessage({ protoFiles, service, method, text: item.body.text })
-        } catch(error) {
+        } catch (error) {
             console.warn(`${item.name}: its message is kept as Insomnia wrote it, as it could not be read with its .proto files: ${error instanceof Error ? error.message : String(error)}`)
         }
     }
@@ -1754,22 +1620,22 @@ async function convertInsomniaGrpcMessages(collection: CollectionItem[], convert
 export async function convertInsomniaFileToRestfoxCollection(file: any, workspaceId: string, convertGrpcMessage: InsomniaGrpcMessageConverter | null = null) {
     let data = file
 
-    if(typeof file?.text === 'function') {
+    if (typeof file?.text === 'function') {
         // YAML is a superset of JSON, so this reads v4 JSON and YAML exports and v5 YAML exports alike
         data = yaml.load(await file.text())
     }
 
-    if(typeof data?.type === 'string' && (data.type.startsWith('collection.insomnia.rest/5') || data.type.startsWith('spec.insomnia.rest/5'))) {
+    if (typeof data?.type === 'string' && (data.type.startsWith('collection.insomnia.rest/5') || data.type.startsWith('spec.insomnia.rest/5'))) {
         data = { resources: convertInsomniaV5ToV4Resources(data) }
     }
 
-    if(!Array.isArray(data?.resources)) {
+    if (!Array.isArray(data?.resources)) {
         throw new Error('Not an Insomnia export: expected an Insomnia collection or design document export')
     }
 
     const collection = convertInsomniaExportToRestfoxCollection(data, workspaceId)
 
-    if(convertGrpcMessage !== null) {
+    if (convertGrpcMessage !== null) {
         await convertInsomniaGrpcMessages(collection, convertGrpcMessage)
     }
 
@@ -1783,16 +1649,16 @@ export function convertInsomniaExportToRestfoxCollection(json: any, workspaceId:
 
     // other resource types, such as environments or WebSocket requests, have nothing here they map to
     json.resources.filter((item: any) => ['workspace', 'request_group', 'request', 'grpc_request'].includes(item._type)).forEach((item: any) => {
-        if(item._type === 'grpc_request') {
+        if (item._type === 'grpc_request') {
             collection.push({
                 ...convertInsomniaGrpcRequest(item, json.resources),
                 parentId: item.parentId === '__WORKSPACE_ID__' && !workspace ? null : item.parentId,
                 workspaceId
             })
-        } else if(item._type === 'workspace' || item._type === 'request_group') {
+        } else if (item._type === 'workspace' || item._type === 'request_group') {
             let parentId = item.parentId
 
-            if(item.parentId === '__WORKSPACE_ID__' && !workspace) {
+            if (item.parentId === '__WORKSPACE_ID__' && !workspace) {
                 parentId = null
             }
 
@@ -1812,7 +1678,7 @@ export function convertInsomniaExportToRestfoxCollection(json: any, workspaceId:
                 mimeType: 'No Body'
             }
 
-            if(item.body.mimeType === 'application/x-www-form-urlencoded' || item.body.mimeType === 'multipart/form-data') {
+            if (item.body.mimeType === 'application/x-www-form-urlencoded' || item.body.mimeType === 'multipart/form-data') {
                 body = {
                     mimeType: item.body.mimeType,
                     params: 'params' in item.body ? item.body.params.map((parameter: RequestParam) => ({
@@ -1830,7 +1696,7 @@ export function convertInsomniaExportToRestfoxCollection(json: any, workspaceId:
                 }
             }
 
-            if(item.body.mimeType === 'text/plain' || item.body.mimeType === 'application/json' || item.body.mimeType === 'application/graphql') {
+            if (item.body.mimeType === 'text/plain' || item.body.mimeType === 'application/json' || item.body.mimeType === 'application/graphql') {
                 body = {
                     mimeType: item.body.mimeType,
                     text: item.body.text
@@ -1839,7 +1705,7 @@ export function convertInsomniaExportToRestfoxCollection(json: any, workspaceId:
 
             let parentId = item.parentId
 
-            if(item.parentId === '__WORKSPACE_ID__' && !workspace) {
+            if (item.parentId === '__WORKSPACE_ID__' && !workspace) {
                 parentId = null
             }
 
@@ -1880,7 +1746,7 @@ function importRestfoxV1(collections: CollectionItem[], workspaceId: string, wor
     const plugins: Plugin[] = workspacePlugins.map(plugin => ({ ...plugin, workspaceId, collectionId: null }))
 
     collections.forEach(item => {
-        if(item._type === 'request_group') {
+        if (item._type === 'request_group') {
             collection.push({
                 _id: item._id,
                 _type: 'request_group',
@@ -1898,7 +1764,7 @@ function importRestfoxV1(collections: CollectionItem[], workspaceId: string, wor
         } else {
             // every item but an HTTP request is kept whole, a type only a newer version knows too, so its own data is
             // there when a version that knows it opens it
-            if(item._type !== 'request' && item._type !== undefined) {
+            if (item._type !== 'request' && item._type !== undefined) {
                 collection.push({
                     ...item,
                     workspaceId,
@@ -1938,7 +1804,7 @@ function importRestfoxV1(collections: CollectionItem[], workspaceId: string, wor
             }
         }
 
-        if(item.plugins) {
+        if (item.plugins) {
             plugins.push(...item.plugins.map((plugin: Plugin) => ({ ...plugin, workspaceId })))
         }
     })
@@ -1953,8 +1819,8 @@ function importRestfoxV1(collections: CollectionItem[], workspaceId: string, wor
 }
 
 export function convertRestfoxExportToRestfoxCollection(json: any, workspaceId: string) {
-    if('exportedFrom' in json) {
-        if(json.exportedFrom === 'Restfox-1.0.0') {
+    if ('exportedFrom' in json) {
+        if (json.exportedFrom === 'Restfox-1.0.0') {
             return importRestfoxV1(json.collection, workspaceId, json.plugins ?? [])
         }
     }
@@ -1982,7 +1848,7 @@ export function extractPathParameters(openapiSchema: string) {
                     } else {
                         pathParams[path[0] + '-' + [method[0].toLowerCase()]] = [{
                             name: param.name,
-                            value:  param.schema?.example ?? '',
+                            value: param.schema?.example ?? '',
                         }]
                     }
                 }
@@ -1998,7 +1864,7 @@ export async function convertOpenAPIExportToRestfoxCollection(exportString: stri
         exportString.replace(/\/{([^}]+)}/g, '/:$1:')
     )
     const pathParams = extractPathParameters(exportString)
-    initExport.data.resources = initExport.data.resources.map((item:{[x:string]:any}) => {
+    initExport.data.resources = initExport.data.resources.map((item: { [x: string]: any }) => {
         if (item.url) {
             item['url'] = item.url.replace(/\/:([^:]+):/g, '/{$1}')
             item['pathParameters'] = pathParams[item['url'].replace(/{{ base_url }}/, '') + '-' + item['method'].toLowerCase()] ?? []
@@ -2012,12 +1878,12 @@ export async function convertOpenAPIExportToRestfoxCollection(exportString: stri
 export async function convertCurlCommandToRestfoxCollection(curlCommand: string, workspaceId: string) {
     const insomniaExport: any = curlConvert(curlCommand)
 
-    if(insomniaExport === null) {
+    if (insomniaExport === null) {
         throw new Error('Invalid Curl Command')
     }
 
-    if('body' in insomniaExport[0]) {
-        if('text' in insomniaExport[0].body) {
+    if ('body' in insomniaExport[0]) {
+        if ('text' in insomniaExport[0].body) {
             if (insomniaExport[0].body.mimeType !== constants.MIME_TYPE.GRAPHQL) {
                 // for some reason we get \\n instead of \n in the text field
                 insomniaExport[0].body.text = insomniaExport[0].body.text.replaceAll('\\n', '\n')
@@ -2039,7 +1905,7 @@ export async function fileToJSON(file: File) {
             if (event.target) {
                 try {
                     resolve(JSON.parse(event.target.result as string))
-                } catch(e) {
+                } catch (e) {
                     reject(e)
                 }
             } else {
@@ -2069,12 +1935,12 @@ export async function fileToString(file: File): Promise<string> {
 // From: https://stackoverflow.com/a/57218589/4932305 but modified to return children on parent matches
 export function filterTree(array: CollectionItem[], name: string) {
     return array.reduce((r: any[], { children = [], ...o }) => {
-        if(o.name.toLowerCase().includes(name.toLowerCase())) {
+        if (o.name.toLowerCase().includes(name.toLowerCase())) {
             r.push(Object.assign(o, { children }))
             return r
         }
         children = filterTree(children, name)
-        if(children.length) {
+        if (children.length) {
             r.push(Object.assign(o, { children }))
         }
         return r
@@ -2084,7 +1950,7 @@ export function filterTree(array: CollectionItem[], name: string) {
 export function addSortOrderToTree(array: CollectionItem[]) {
     array.forEach((item, index) => {
         item.sortOrder = index
-        if(item.children) {
+        if (item.children) {
             addSortOrderToTree(item.children)
         }
     })
@@ -2093,7 +1959,7 @@ export function addSortOrderToTree(array: CollectionItem[]) {
 export function sortTree(array: CollectionItem[]) {
     array.sort((a, b) => a.sortOrder! - b.sortOrder!)
     array.forEach(item => {
-        if(item.children) {
+        if (item.children) {
             sortTree(item.children)
         }
     })
@@ -2148,12 +2014,12 @@ export function getChildIds(arr: any[], id: string) {
 export function findItemInTreeById(array: CollectionItem[], id: string): CollectionItem | null {
     let result = null
     function findItemInTreeByIdRecurse(array2: CollectionItem[], id2: string) {
-        for(let i = 0; i < array2.length; i++) {
-            if(array2[i]._id === id2) {
+        for (let i = 0; i < array2.length; i++) {
+            if (array2[i]._id === id2) {
                 result = array2[i]
             }
 
-            if('children' in array2[i]) {
+            if ('children' in array2[i]) {
                 findItemInTreeByIdRecurse(array2[i].children as CollectionItem[], id2)
             }
         }
@@ -2166,12 +2032,12 @@ export function generateNewIdsForTreeItemChildren(treeItem: CollectionItem, oldI
     const parentId = treeItem._id
     treeItem.children?.forEach(item => {
         const newId = nanoid()
-        if(oldIdNewIdMapping !== null) {
+        if (oldIdNewIdMapping !== null) {
             oldIdNewIdMapping[item._id] = newId
         }
         item._id = newId
         item.parentId = parentId
-        if('children' in item) {
+        if ('children' in item) {
             generateNewIdsForTreeItemChildren(item, oldIdNewIdMapping)
         }
     })
@@ -2184,13 +2050,13 @@ export function generateNewIdsForTree(array: CollectionItem[]) {
         const newId = nanoid()
         oldIdNewIdMapping[treeItem._id] = newId
         treeItem._id = newId
-        if('children' in treeItem) {
+        if ('children' in treeItem) {
             treeItem.children?.forEach(item => {
                 const newId = nanoid()
                 oldIdNewIdMapping[item._id] = newId
                 item._id = newId
                 item.parentId = treeItem._id
-                if('children' in item) {
+                if ('children' in item) {
                     generateNewIdsForTreeItemChildren(item, oldIdNewIdMapping)
                 }
             })
@@ -2236,17 +2102,17 @@ export function isFirstIdIndirectOrDirectParentOfSecondIdInTree(array: any, firs
 
     function f(data: any, a: any, b: any, p = false) {
         if (Array.isArray(data)) {
-            data.forEach(function(o) {
-                if(p && a == o._id) {
+            data.forEach(function (o) {
+                if (p && a == o._id) {
                     result = true
                 } else {
-                    if('children' in o) {
+                    if ('children' in o) {
                         f(o.children, a, b, !p ? b == o._id : p)
                     }
                 }
             })
         } else {
-            if('children' in data) {
+            if ('children' in data) {
                 f(data.children, a, b, p)
             }
         }
@@ -2260,7 +2126,7 @@ export function isFirstIdIndirectOrDirectParentOfSecondIdInTree(array: any, firs
 export function dateFormat(date: number, includeSeconds = false) {
     let format = 'DD-MMM-YY hh:mm A'
 
-    if(includeSeconds) {
+    if (includeSeconds) {
         format = 'DD-MMM-YY hh:mm:ss A'
     }
 
@@ -2302,14 +2168,14 @@ export function getObjectPaths(object: object): string[] {
     const paths: any[] = []
 
     function recurse(obj: any, keyParent = '') {
-        if(typeof obj === 'number' || typeof obj === 'string' || obj === null) {
+        if (typeof obj === 'number' || typeof obj === 'string' || obj === null) {
             return
         }
         const isArray = Array.isArray(obj)
         Object.keys(obj).forEach(key => {
             let newKeyParent = keyParent
-            if(newKeyParent) {
-                if(isArray) {
+            if (newKeyParent) {
+                if (isArray) {
                     newKeyParent = `${newKeyParent}[${key}]`
                 } else {
                     newKeyParent = `${newKeyParent}.${key}`
@@ -2332,17 +2198,17 @@ export function getObjectPaths(object: object): string[] {
 export function prepareCollectionForExport(collectionItems: CollectionItem[], plugins: Plugin[], regenerateIds: boolean): CollectionItem[] {
     let collection: CollectionItem[] = deepClone(collectionItems)
 
-    for(const item of collection) {
+    for (const item of collection) {
         item.plugins = deepClone(plugins.filter(plugin => plugin.collectionId === item._id))
     }
 
-    if(regenerateIds) {
+    if (regenerateIds) {
         const collectionTree = toTree(collection)
         const oldIdNewIdMapping = generateNewIdsForTree(collectionTree)
         collection = flattenTree(collectionTree)
 
-        for(const item of collection) {
-            for(const plugin of item.plugins) {
+        for (const item of collection) {
+            for (const plugin of item.plugins) {
                 plugin.collectionId = oldIdNewIdMapping[plugin.collectionId]
             }
         }
@@ -2401,37 +2267,37 @@ export function checkHotkeyAgainstKeyEvent(hotkey: string, event: KeyboardEvent)
 
     let hotkeyMatched = true
 
-    if(ctrlKeyRequired) {
-        if(!event.ctrlKey) {
+    if (ctrlKeyRequired) {
+        if (!event.ctrlKey) {
             hotkeyMatched = false
         }
     } else {
-        if(event.ctrlKey) {
+        if (event.ctrlKey) {
             hotkeyMatched = false
         }
     }
 
-    if(altKeyRequired) {
-        if(!event.altKey) {
+    if (altKeyRequired) {
+        if (!event.altKey) {
             hotkeyMatched = false
         }
     } else {
-        if(event.altKey) {
+        if (event.altKey) {
             hotkeyMatched = false
         }
     }
 
-    if(shiftKeyRequired) {
-        if(!event.shiftKey) {
+    if (shiftKeyRequired) {
+        if (!event.shiftKey) {
             hotkeyMatched = false
         }
     } else {
-        if(event.shiftKey) {
+        if (event.shiftKey) {
             hotkeyMatched = false
         }
     }
 
-    if(event.key.toLowerCase() !== requiredKey?.toLowerCase()) {
+    if (event.key.toLowerCase() !== requiredKey?.toLowerCase()) {
         hotkeyMatched = false
     }
 
@@ -2445,7 +2311,7 @@ export function setObjectPathValue(object: any, path: string, value: any) {
         return key.startsWith('[') ? key.slice(1, -1).replace(/^(["'])(.*)\1$/, '$2') : key
     })
 
-    if(keys.some(key => key === '__proto__' || key === 'constructor' || key === 'prototype')) {
+    if (keys.some(key => key === '__proto__' || key === 'constructor' || key === 'prototype')) {
         console.warn(`setObjectPathValue: refusing to set "${path}"`)
         return
     }
@@ -2453,12 +2319,12 @@ export function setObjectPathValue(object: any, path: string, value: any) {
     let current = object
 
     keys.forEach((key, index) => {
-        if(index === keys.length - 1) {
+        if (index === keys.length - 1) {
             current[key] = value
             return
         }
 
-        if(typeof current[key] !== 'object' || current[key] === null) {
+        if (typeof current[key] !== 'object' || current[key] === null) {
             current[key] = /^\d+$/.test(keys[index + 1]) ? [] : {}
         }
 
@@ -2565,7 +2431,7 @@ function saveUpdatedSecret(secrets: Record<string, any> | undefined, objectPath:
 
 export function setEnvironmentVariable(store: ActionContext<State, State>, objectPath: string, value: string) {
     try {
-        if(store.state.activeWorkspace === null) {
+        if (store.state.activeWorkspace === null) {
             throw new Error('activeWorkspace is null')
         }
 
@@ -2579,7 +2445,7 @@ export function setEnvironmentVariable(store: ActionContext<State, State>, objec
         ]
         const currentEnvironment = environmentsToModify.find(environmentItem => environmentItem.name === (store.state.activeWorkspace!.currentEnvironment ?? 'Default'))
 
-        if(currentEnvironment && ownsSecretKey(currentEnvironment.secrets, objectPath)) {
+        if (currentEnvironment && ownsSecretKey(currentEnvironment.secrets, objectPath)) {
             saveUpdatedSecret(currentEnvironment.secrets, objectPath, value, sealed => {
                 currentEnvironment.secrets = sealed
             }, () => {
@@ -2592,7 +2458,7 @@ export function setEnvironmentVariable(store: ActionContext<State, State>, objec
             return
         }
 
-        if(ownsSecretKey(store.state.activeWorkspace.globalSecrets, objectPath)) {
+        if (ownsSecretKey(store.state.activeWorkspace.globalSecrets, objectPath)) {
             saveUpdatedSecret(store.state.activeWorkspace.globalSecrets, objectPath, value, sealed => {
                 store.state.activeWorkspace!.globalSecrets = sealed
             }, () => {
@@ -2607,16 +2473,16 @@ export function setEnvironmentVariable(store: ActionContext<State, State>, objec
 
         setObjectPathValue(environmentToModify, objectPath, value)
         store.state.activeWorkspace.environment = environmentToModify
-        store.commit('updateWorkspaceEnvironment',  {
+        store.commit('updateWorkspaceEnvironment', {
             workspaceId: store.state.activeWorkspace._id,
             environment: environmentToModify
         })
         currentEnvironment.environment = environmentToModify
-        store.commit('updateWorkspaceEnvironments',  {
+        store.commit('updateWorkspaceEnvironments', {
             workspaceId: store.state.activeWorkspace._id,
             environments: environmentsToModify
         })
-    } catch(e) {
+    } catch (e) {
         console.error('Failed to set environment variable:')
         console.error(e)
     }
@@ -2624,14 +2490,14 @@ export function setEnvironmentVariable(store: ActionContext<State, State>, objec
 
 export function setParentEnvironmentVariable(store: ActionContext<State, State>, objectPath: string, value: string, currentCollectionItem: CollectionItem) {
     try {
-        if(store.state.activeWorkspace === null) {
+        if (store.state.activeWorkspace === null) {
             throw new Error('activeWorkspace is null')
         }
 
         // Find the target folder (parent folder of the current item)
         let targetFolderId: string | null = null
 
-        if(currentCollectionItem.parentId) {
+        if (currentCollectionItem.parentId) {
             // If it has a parent, use the parent folder (works for both requests and folders)
             targetFolderId = currentCollectionItem.parentId
         } else {
@@ -2642,17 +2508,17 @@ export function setParentEnvironmentVariable(store: ActionContext<State, State>,
 
         const targetFolder = findItemInTreeById(store.state.collectionTree, targetFolderId)
 
-        if(!targetFolder || targetFolder._type !== 'request_group') {
+        if (!targetFolder || targetFolder._type !== 'request_group') {
             // If folder not found, fall back to global environment
             setEnvironmentVariable(store, objectPath, value)
             return
         }
 
-        if(targetFolder.environments) {
+        if (targetFolder.environments) {
             const currentEnvironmentName = targetFolder.currentEnvironment ?? constants.DEFAULT_ENVIRONMENT.name
             const currentEnvironment = targetFolder.environments.find((env: any) => env.name === currentEnvironmentName) as any
 
-            if(currentEnvironment && ownsSecretKey(currentEnvironment.secrets, objectPath)) {
+            if (currentEnvironment && ownsSecretKey(currentEnvironment.secrets, objectPath)) {
                 saveUpdatedSecret(currentEnvironment.secrets, objectPath, value, sealed => {
                     currentEnvironment.secrets = sealed
                 }, () => {
@@ -2675,10 +2541,10 @@ export function setParentEnvironmentVariable(store: ActionContext<State, State>,
             environment: folderEnvironment
         })
 
-        if(targetFolder.environments) {
+        if (targetFolder.environments) {
             const currentEnvironmentName = targetFolder.currentEnvironment ?? constants.DEFAULT_ENVIRONMENT.name
             const currentEnvironment = targetFolder.environments.find((env: any) => env.name === currentEnvironmentName) as any
-            if(currentEnvironment) {
+            if (currentEnvironment) {
                 currentEnvironment.environment = folderEnvironment
                 store.commit('updateCollectionItemEnvironments', {
                     collectionId: targetFolderId,
@@ -2689,7 +2555,7 @@ export function setParentEnvironmentVariable(store: ActionContext<State, State>,
 
         store.dispatch('reloadTabEnvironmentResolved')
 
-    } catch(e) {
+    } catch (e) {
         console.error('Failed to set folder environment variable:')
         console.error(e)
         // Fall back to global environment on error
@@ -2722,13 +2588,13 @@ export function getParentPath(collection: CollectionItem[], itemId: string): str
 export function prependParentTitleToChildTitle(array: CollectionItem[], prepend = '') {
     array.forEach(item => {
         item.name = `${prepend ? prepend + ' ' : ''}${item.name}`
-        if(item.children) {
+        if (item.children) {
             prependParentTitleToChildTitle(item.children, item.name + ' → ')
         }
     })
 }
 
-export function debounce<T extends(...args: any[]) => any>(
+export function debounce<T extends (...args: any[]) => any>(
     func: T,
     timeout = 300
 ): (...args: Parameters<T>) => void {
@@ -2739,7 +2605,7 @@ export function debounce<T extends(...args: any[]) => any>(
     }
 }
 
-export function getAlertConfirmPromptContainer(componentRootElement: HTMLElement) : {
+export function getAlertConfirmPromptContainer(componentRootElement: HTMLElement): {
     createPrompt: any
     createConfirm: any
     createAlert: any
@@ -2761,14 +2627,11 @@ export function isWebStandaloneBuild() {
 }
 
 // Names the build this page is, for page view analytics
-export function getBuild(): 'desktop' | 'web-standalone' | 'extension' | 'web' {
-    if(import.meta.env.MODE === 'desktop-electron') {
-        return 'desktop'
-    }
-    if(import.meta.env.MODE === 'web-standalone') {
+export function getBuild(): 'web-standalone' | 'extension' | 'web' {
+    if (import.meta.env.MODE === 'web-standalone') {
         return 'web-standalone'
     }
-    if(window.location.protocol.endsWith('-extension:')) {
+    if (window.location.protocol.endsWith('-extension:')) {
         return 'extension'
     }
     return 'web'
@@ -2782,7 +2645,7 @@ export function uriParse(urlString: string): {
     hash: string | null;
     search: string | null;
 } {
-    const { protocol, host, port, pathname, hash, search }  = new URL(urlString)
+    const { protocol, host, port, pathname, hash, search } = new URL(urlString)
     return { protocol, host, port, pathname, hash, search }
 }
 
@@ -2796,7 +2659,7 @@ function isLoopbackHostname(hostname: string) {
 // skip that or to trust another CA, so a secure loopback socket still goes through the server with SSL verification
 // disabled or CA certificates registered under caCertificatesId
 export function getSocketConnectionUrl(url: string, flags: Pick<Flags, 'isWebStandalone' | 'disableSSLVerification'> & { caCertificatesId?: string | null, proxySettingsId?: string | null }, serverLocation: Pick<Location, 'protocol' | 'host'> = window.location): string {
-    if(!flags.isWebStandalone) {
+    if (!flags.isWebStandalone) {
         return url
     }
 
@@ -2808,14 +2671,14 @@ export function getSocketConnectionUrl(url: string, flags: Pick<Flags, 'isWebSta
         return url
     }
 
-    if(!['ws:', 'wss:', 'http:', 'https:'].includes(parsedUrl.protocol)) {
+    if (!['ws:', 'wss:', 'http:', 'https:'].includes(parsedUrl.protocol)) {
         return url
     }
 
     let options: string
 
-    if(isLoopbackHostname(parsedUrl.hostname)) {
-        if((parsedUrl.protocol !== 'wss:' && parsedUrl.protocol !== 'https:') || (!flags.disableSSLVerification && !flags.caCertificatesId)) {
+    if (isLoopbackHostname(parsedUrl.hostname)) {
+        if ((parsedUrl.protocol !== 'wss:' && parsedUrl.protocol !== 'https:') || (!flags.disableSSLVerification && !flags.caCertificatesId)) {
             return url
         }
 
@@ -2877,15 +2740,15 @@ export function timeAgo(timestamp: number) {
 export function responseStatusColorMapping(response: Response) {
     let color
 
-    if(response.status >= 200 && response.status <= 299) {
+    if (response.status >= 200 && response.status <= 299) {
         color = 'green'
     }
 
-    if(response.status >= 400 && response.status <= 499) {
+    if (response.status >= 400 && response.status <= 499) {
         color = 'yellow'
     }
 
-    if(response.status >= 500 || response.statusText === 'Error') {
+    if (response.status >= 500 || response.statusText === 'Error') {
         color = 'red'
     }
 
@@ -2933,8 +2796,8 @@ export async function initStoragePersistence() {
             break
         case 'prompt':
             console.log('Not persisted, so we will try to prompt user')
-            if(navigator.storage && navigator.storage.persist) {
-                if(await navigator.storage.persist()) {
+            if (navigator.storage && navigator.storage.persist) {
+                if (await navigator.storage.persist()) {
                     console.log('Storage is now persisted')
                 } else {
                     console.log('Storage was not persisted')
@@ -2951,7 +2814,7 @@ export const INHERITED_AUTHENTICATION_TYPE = 'No Auth'
 // 'inherit' takes the auth of the nearest folder above that has one of its own, 'none' sends no auth and, on a folder, stops
 // inheritance below it. An item without an authentication object or type inherits as well
 export function getAuthenticationType(authentication: RequestAuthentication | undefined): string {
-    if(authentication === undefined || authentication.type === undefined || authentication.type === INHERITED_AUTHENTICATION_TYPE) {
+    if (authentication === undefined || authentication.type === undefined || authentication.type === INHERITED_AUTHENTICATION_TYPE) {
         return 'inherit'
     }
 
@@ -2973,7 +2836,7 @@ export function createOAuthTokenRequest(clientId: string, clientSecret: string, 
     }
     const body = new URLSearchParams(parameters)
 
-    if(clientAuthentication === 'header') {
+    if (clientAuthentication === 'header') {
         headers['Authorization'] = generateBasicAuthString(encodeURIComponent(clientId), encodeURIComponent(clientSecret))
     } else {
         body.set('client_id', clientId)
@@ -3001,28 +2864,28 @@ function isOAuthTokenFieldMissing(value: string | undefined) {
 export function getMissingOAuthTokenFieldsMessage(purpose: 'get' | 'refresh', values: OAuthTokenFieldValues): string | null {
     const missing: string[] = []
 
-    if(purpose === 'get' && isOAuthTokenFieldMissing(values.grantType)) {
+    if (purpose === 'get' && isOAuthTokenFieldMissing(values.grantType)) {
         missing.push('Grant Type')
     }
 
-    if(isOAuthTokenFieldMissing(values.accessTokenUrl)) {
+    if (isOAuthTokenFieldMissing(values.accessTokenUrl)) {
         missing.push('Access Token URL')
     }
 
-    if(purpose === 'get' && values.grantType === constants.GRANT_TYPES.password_credentials && isOAuthTokenFieldMissing(values.username)) {
+    if (purpose === 'get' && values.grantType === constants.GRANT_TYPES.password_credentials && isOAuthTokenFieldMissing(values.username)) {
         missing.push('Username')
     }
 
-    if(purpose === 'get' && values.grantType === constants.GRANT_TYPES.authorization_code) {
-        if(isOAuthTokenFieldMissing(values.authorizationCode)) {
+    if (purpose === 'get' && values.grantType === constants.GRANT_TYPES.authorization_code) {
+        if (isOAuthTokenFieldMissing(values.authorizationCode)) {
             missing.push('Authorization Code')
         }
-        if(isOAuthTokenFieldMissing(values.redirectUri)) {
+        if (isOAuthTokenFieldMissing(values.redirectUri)) {
             missing.push('Redirect URI')
         }
     }
 
-    if(missing.length === 0) {
+    if (missing.length === 0) {
         return null
     }
 
@@ -3052,41 +2915,41 @@ function getResponseTextSnippet(text: string) {
 // says what went wrong with a token request and what to change, for every way it can fail: an HTTP error with or without
 // the RFC 6749 section 5.2 error body, a 200 without a token, a timeout, or a server that could not be reached
 export function describeOAuthTokenError(error: any, accessTokenUrl: string): string {
-    if(typeof error?.status === 'number') {
+    if (typeof error?.status === 'number') {
         const text = error.buffer ? new TextDecoder().decode(error.buffer) : ''
         const json = parseOAuthTokenResponse(error.buffer)
         // an answer without the OAuth error field, such as an API gateway's own JSON, is shown as its text
         const snippet = json && typeof json.error === 'string' ? '' : getResponseTextSnippet(text)
         const statusLine = `HTTP ${error.status}${error.statusText ? ' ' + error.statusText : ''}`
 
-        if(json && typeof json.error === 'string') {
+        if (json && typeof json.error === 'string') {
             let message = `The token endpoint answered ${statusLine}: ${json.error}${json.error_description ? ', ' + json.error_description : ''}.`
-            if(json.error === 'invalid_client') {
+            if (json.error === 'invalid_client') {
                 message += ' It refused the client credentials. Check the Client ID and Client Secret, or switch Client Authentication between Basic Auth Header and Request Body.'
             }
             return message
         }
 
-        if(error.status === 200) {
+        if (error.status === 200) {
             return json ? `The token endpoint answered HTTP 200 without an access_token: ${snippet}.` : `The token endpoint answered HTTP 200 with something other than JSON${snippet ? ': ' + snippet : ''}.`
         }
 
         let message = `The token endpoint answered ${statusLine}${snippet ? ': ' + snippet : ''}.`
-        if(error.status === 401 || error.status === 403) {
+        if (error.status === 401 || error.status === 403) {
             message += ' It refused the request. Check the Client ID and Client Secret, or switch Client Authentication between Basic Auth Header and Request Body.'
-        } else if(error.status === 404 || error.status === 405) {
+        } else if (error.status === 404 || error.status === 405) {
             message += ' Check the Access Token URL.'
         }
         return message
     }
 
-    if(error?.name === 'TimeoutError') {
+    if (error?.name === 'TimeoutError') {
         return `The token request to ${accessTokenUrl} timed out. Check that the server is running, or raise Request Timeout in Settings.`
     }
 
     const reason = error instanceof Error ? error.message : String(error)
     let message = `Could not reach the token endpoint at ${accessTokenUrl}: ${reason}. Check the Access Token URL and that the server is running.`
-    if(reason === 'Failed to fetch') {
+    if (reason === 'Failed to fetch') {
         message += ' In the browser the server must also allow cross-origin requests, otherwise use the Restfox CORS Helper extension or the desktop app.'
     }
     return message
@@ -3096,7 +2959,7 @@ export function describeOAuthTokenError(error: any, accessTokenUrl: string): str
 export async function resolveAuthentication(send: SendResolver, authentication: RequestAuthentication, environment: any, headerName: string, onResolvedMasked?: (value: string) => void) {
     const part = { header: headerName }
 
-    if(authentication.type === 'basic') {
+    if (authentication.type === 'basic') {
         const username = await send.resolveWithMasked(environment, authentication.username ?? '', part)
         const password = await send.resolveWithMasked(environment, authentication.password ?? '', part)
         const authorization = generateBasicAuthString(username.textResolved, password.textResolved)
@@ -3104,7 +2967,7 @@ export async function resolveAuthentication(send: SendResolver, authentication: 
         return authorization
     }
 
-    if(authentication.type === 'bearer' || authentication.type === 'oauth2') {
+    if (authentication.type === 'bearer' || authentication.type === 'oauth2') {
         const authenticationBearerPrefix = authentication.prefix !== undefined && authentication.prefix !== '' ? authentication.prefix : 'Bearer'
         const authenticationBearerToken = authentication.token !== undefined ? authentication.token : ''
         const prefix = await send.resolveWithMasked(environment, authenticationBearerPrefix, part)
@@ -3384,12 +3247,12 @@ export function convertPostmanAuthToRestfoxAuth(request: any) {
     // Postman leaves auth out of an item that inherits its folder's and writes noauth on one that opted out
     let authentication: RequestAuthentication = { type: INHERITED_AUTHENTICATION_TYPE }
 
-    if('auth' in request && request.auth) {
+    if ('auth' in request && request.auth) {
         const authType = request.auth.type
 
-        if(authType === 'noauth') {
+        if (authType === 'noauth') {
             authentication = { type: 'none' }
-        } else if(authType === 'bearer' && request.auth.bearer) {
+        } else if (authType === 'bearer' && request.auth.bearer) {
             const token = Array.isArray(request.auth.bearer)
                 ? request.auth.bearer.find((item: any) => item.key === 'token')?.value || ''
                 : request.auth.bearer.token
@@ -3399,12 +3262,12 @@ export function convertPostmanAuthToRestfoxAuth(request: any) {
                 token,
             }
 
-        } else if(authType === 'basic' && request.auth.basic) {
+        } else if (authType === 'basic' && request.auth.basic) {
             // Handle Basic Authentication for both v2.0 and v2.1 formats
             let username = ''
             let password = ''
 
-            if(Array.isArray(request.auth.basic)) {
+            if (Array.isArray(request.auth.basic)) {
                 // Postman v2.1 format
                 username = request.auth.basic.find((item: any) => item.key === 'username')?.value || ''
                 password = request.auth.basic.find((item: any) => item.key === 'password')?.value || ''
@@ -3420,7 +3283,7 @@ export function convertPostmanAuthToRestfoxAuth(request: any) {
                 password,
             }
 
-        } else if(authType === 'oauth2' && request.auth.oauth2) {
+        } else if (authType === 'oauth2' && request.auth.oauth2) {
             // Postman v2.1 stores the settings as a list of key and value, v2.0 as a plain object
             const oauth2Entries: { key: string, value: any }[] = Array.isArray(request.auth.oauth2)
                 ? request.auth.oauth2
@@ -3428,9 +3291,9 @@ export function convertPostmanAuthToRestfoxAuth(request: any) {
             // older Postman versions wrote some settings under other names, in both formats, see oAuth2 in
             // postman-collection-transformer lib/util.js. The first name given with a value wins, the current one is first
             const getOAuth2Value = (...keys: string[]) => {
-                for(const key of keys) {
+                for (const key of keys) {
                     const value = oauth2Entries.find(item => item.key === key)?.value
-                    if(value !== undefined && value !== '') {
+                    if (value !== undefined && value !== '') {
                         return value
                     }
                 }
@@ -3464,11 +3327,11 @@ export function convertPostmanAuthToRestfoxAuth(request: any) {
                 scope,
             }
 
-            if(clientAuthentication === 'header' || clientAuthentication === 'body') {
+            if (clientAuthentication === 'header' || clientAuthentication === 'body') {
                 authentication.clientAuthentication = clientAuthentication
             }
 
-            if(postmanGrantType === 'authorization_code_with_pkce') {
+            if (postmanGrantType === 'authorization_code_with_pkce') {
                 authentication.usePKCE = true
             }
 
@@ -3484,9 +3347,9 @@ export function convertPostmanAuthToRestfoxAuth(request: any) {
                 [['refreshToken'], 'refreshToken'],
             ]
 
-            for(const [postmanKeys, restfoxKey] of optionalFields) {
+            for (const [postmanKeys, restfoxKey] of optionalFields) {
                 const value = getOAuth2Value(...postmanKeys)
-                if(typeof value === 'string' && value !== '') {
+                if (typeof value === 'string' && value !== '') {
                     (authentication as Record<string, unknown>)[restfoxKey] = value
                 }
             }
@@ -3549,11 +3412,11 @@ export async function resolveGrpcMetadata(
     const headersMasked = metadataMasked ? new Map<string, [string, string]>() : undefined
     const { headers } = await createRequestData(state, grpcItemAsRequest(grpcRequest, ''), environment, parentHeaders, parentAuthentication, null, [], workspaceLocation, send, headersMasked)
 
-    if(defaultUserAgent) {
+    if (defaultUserAgent) {
         const userAgentHeaderName = findHeaderName(headers, 'user-agent')
         const usesDefaultUserAgent = userAgentHeaderName !== undefined && !headers[userAgentHeaderName]
         setDefaultUserAgent(headers)
-        if(userAgentHeaderName !== undefined && usesDefaultUserAgent) {
+        if (userAgentHeaderName !== undefined && usesDefaultUserAgent) {
             headersMasked?.set(userAgentHeaderName, [headersMasked.get(userAgentHeaderName)?.[0] ?? userAgentHeaderName, headers[userAgentHeaderName]])
         }
     }
@@ -3586,14 +3449,14 @@ export async function createGrpcRequestData(
 
 // a word the shell takes as it is, quoted only when it has to be
 function quoteShellWord(text: string) {
-    if(/^[A-Za-z0-9_@%+=:,./-]+$/.test(text)) {
+    if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(text)) {
         return text
     }
 
     return `'${text.replaceAll('\'', '\'\\\'\'')}'`
 }
 
-// Metadata a call leaves out, as the engine does (packages/electron/src/grpc.js): names gRPC or HTTP/2 set themselves,
+// Metadata a call leaves out, as the engine does (packages/shared/grpc.js): names gRPC or HTTP/2 set themselves,
 // the connection-specific ones HTTP/2 refuses, and the reserved grpc- ones
 const GRPC_RESERVED_METADATA_NAMES = ['content-type', 'te', 'host', 'connection', 'keep-alive', 'proxy-connection', 'transfer-encoding', 'upgrade', 'http2-settings']
 
@@ -3609,12 +3472,12 @@ function isGrpcMetadataSent(name: string) {
 function getGrpcurlProtoPaths(protoFiles: GrpcProtoFile[]) {
     const found = new Map<string, { folder: string, path: string }>()
 
-    for(const protoFile of protoFiles) {
-        for(const [, importPath] of protoFile.text.matchAll(/^\s*import\s+(?:weak\s+|public\s+)?["']([^"']+)["']\s*;/gm)) {
+    for (const protoFile of protoFiles) {
+        for (const [, importPath] of protoFile.text.matchAll(/^\s*import\s+(?:weak\s+|public\s+)?["']([^"']+)["']\s*;/gm)) {
             const imported = protoFiles.find(file => file.path === importPath)
                 ?? protoFiles.find(file => file.path.endsWith(`/${importPath}`))
                 ?? protoFiles.find(file => importPath.endsWith(`/${file.path}`))
-            if(imported && !found.has(imported.path)) {
+            if (imported && !found.has(imported.path)) {
                 const folder = imported.path.endsWith(`/${importPath}`) ? imported.path.slice(0, -importPath.length - 1) : '.'
                 found.set(imported.path, { folder, path: importPath })
             }
@@ -3625,7 +3488,7 @@ function getGrpcurlProtoPaths(protoFiles: GrpcProtoFile[]) {
 
     return protoFiles.map(protoFile => {
         const imported = found.get(protoFile.path)
-        if(imported) {
+        if (imported) {
             return imported
         }
         // a file nothing imports, found from the folder the others are
@@ -3642,48 +3505,48 @@ export function generateGrpcurlCommand(
 ) {
     const { service, method, protoFiles } = grpcRequest.grpc ?? {}
 
-    if(!service || !method) {
+    if (!service || !method) {
         throw new Error('Choose a method first')
     }
 
     const words = ['grpcurl']
 
-    if(!resolved.target.tls) {
+    if (!resolved.target.tls) {
         words.push('-plaintext')
-    } else if(resolved.disableSSLVerification) {
+    } else if (resolved.disableSSLVerification) {
         words.push('-insecure')
     }
 
     // grpcurl drops a User-Agent given with -H and takes it only as -user-agent. The call sends the last row's
     let userAgent: string | null = null
 
-    for(const [name, value] of resolved.metadata) {
-        if(name.trim().toLowerCase() === 'user-agent') {
+    for (const [name, value] of resolved.metadata) {
+        if (name.trim().toLowerCase() === 'user-agent') {
             userAgent = value
-        } else if(isGrpcMetadataSent(name)) {
+        } else if (isGrpcMetadataSent(name)) {
             // rows of one -bin name come joined with a comma, which the call sends as separate values and grpcurl
             // would take as one
             const values = name.trim().toLowerCase().endsWith('-bin') ? value.split(',').map(part => part.trim()) : [value]
-            for(const oneValue of values) {
+            for (const oneValue of values) {
                 words.push('-H', quoteShellWord(`${name}: ${oneValue}`))
             }
         }
     }
 
-    if(userAgent !== null) {
+    if (userAgent !== null) {
         words.push('-user-agent', quoteShellWord(userAgent))
     }
 
-    if(resolved.message.trim() !== '') {
+    if (resolved.message.trim() !== '') {
         words.push('-d', quoteShellWord(resolved.message))
     }
 
-    if(protoFiles && protoFiles.length > 0) {
+    if (protoFiles && protoFiles.length > 0) {
         const protoPaths = getGrpcurlProtoPaths(protoFiles)
-        for(const folder of new Set(protoPaths.map(({ folder }) => folder))) {
+        for (const folder of new Set(protoPaths.map(({ folder }) => folder))) {
             words.push('-import-path', quoteShellWord(folder))
         }
-        for(const path of new Set(protoPaths.map(({ path }) => path))) {
+        for (const path of new Set(protoPaths.map(({ path }) => path))) {
             words.push('-proto', quoteShellWord(path))
         }
     }

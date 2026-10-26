@@ -17,12 +17,10 @@ import constants from './constants'
 import {
     checkHotkeyAgainstKeyEvent,
     applyTheme,
-    debounce,
     initStoragePersistence,
     getSavedRequestTimeout,
     getSavedCACertificates,
     getSavedProxySettings,
-    getProxySettingsInUse,
     getVersion,
     getBuild,
 } from './helpers'
@@ -75,48 +73,16 @@ export default {
             }
         },
         '$store.state.flags.disableSSLVerification'() {
-            if(import.meta.env.MODE === 'desktop-electron') {
-                this.forgetFailedGrpcSchemaLoadsOnceApplied(window.electronIPC.setDisableSSLVerification(this.$store.state.flags.disableSSLVerification))
-            } else {
-                forgetFailedGrpcSchemaLoads()
-            }
+            forgetFailedGrpcSchemaLoads()
         },
         '$store.state.flags.caCertificates'() {
-            if(import.meta.env.MODE === 'desktop-electron') {
-                this.forgetFailedGrpcSchemaLoadsOnceApplied(this.sendCACertificatesToElectron())
-            } else {
-                forgetFailedGrpcSchemaLoads()
-            }
+            forgetFailedGrpcSchemaLoads()
         },
         '$store.state.flags.proxy'() {
-            if(import.meta.env.MODE === 'desktop-electron') {
-                this.forgetFailedGrpcSchemaLoadsOnceApplied(this.sendProxyToElectron())
-            } else {
-                forgetFailedGrpcSchemaLoads()
-            }
+            forgetFailedGrpcSchemaLoads()
         }
     },
     methods: {
-        // a gRPC method load that failed may have failed for the setting that changed, so the next one tries again, once
-        // the Electron main process, which makes the connection, has the setting
-        forgetFailedGrpcSchemaLoadsOnceApplied(applied) {
-            Promise.resolve(applied).catch(() => undefined).finally(() => forgetFailedGrpcSchemaLoads())
-        },
-        sendProxyToElectron() {
-            const proxy = this.$store.state.flags.proxy
-
-            // a plain copy, IPC cannot send the store's reactive object
-            return window.electronIPC.setProxy(proxy ? { ...getProxySettingsInUse(proxy) } : null).catch(error => {
-                console.error('Settings > Proxy:', error.message)
-            })
-        },
-        sendCACertificatesToElectron() {
-            return window.electronIPC.setCACertificates(this.$store.state.flags.caCertificates?.certificates ?? null).then(({ error }) => {
-                if(error) {
-                    console.error(`Settings > CA Certificates > ${this.$store.state.flags.caCertificates?.fileName}: ${error}`)
-                }
-            })
-        },
         async fetchSetCollectionForWorkspace() {
             if(!this.activeWorkspace) {
                 this.activeWorkspaceLoaded = false
@@ -266,78 +232,6 @@ export default {
         handleError(errorMessage) {
             this.$toast.error(errorMessage)
         },
-        onWorkspaceChanged(refreshWorkspace, event, path, controlledChange, controlledChangeReason) {
-            console.log('workspaceChanged', { event, path, controlledChange, controlledChangeReason })
-            if(!controlledChange && this.activeWorkspace) {
-                refreshWorkspace()
-
-                if((event === 'add' || event === 'addDir') && path.endsWith('.responses.json') === false && path.endsWith('_collapsed') === false) {
-                    let eventType = 'collectionItem'
-
-                    const event = {
-                        name: 'added',
-                        data: {
-                            path
-                        }
-                    }
-
-                    if(path.includes('_environments')) {
-                        eventType = 'environment'
-                    }
-
-                    if(path.endsWith('.plugins.json')) {
-                        eventType = 'plugin'
-                    }
-
-                    console.log(`emit: ${eventType}`, event)
-                    emitter.emit(eventType, event)
-                }
-
-                if((event === 'change') && path.endsWith('.responses.json') === false && path.endsWith('_collapsed') === false) {
-                    let eventType = 'collectionItem'
-
-                    const event = {
-                        name: 'updated',
-                        data: {
-                            path
-                        }
-                    }
-
-                    if(path.includes('_environments')) {
-                        eventType = 'environment'
-                    }
-
-                    if(path.endsWith('.plugins.json')) {
-                        eventType = 'plugin'
-                    }
-
-                    console.log(`emit: ${eventType}`, event)
-                    emitter.emit(eventType, event)
-                }
-
-                if((event === 'unlinkDir' || event === 'unlink') && path.endsWith('.responses.json') === false && path.endsWith('_collapsed') === false) {
-                    let eventType = 'collectionItem'
-
-                    const event = {
-                        name: 'deleted',
-                        data: {
-                            path
-                        }
-                    }
-
-                    if(path.includes('_environments')) {
-                        eventType = 'environment'
-                    }
-
-                    if(path.endsWith('.plugins.json')) {
-                        eventType = 'plugin'
-                    }
-
-                    console.log(`emit: ${eventType}`, event)
-                    emitter.emit(eventType, event)
-                }
-            }
-        }
     },
     async created() {
         this.$store.dispatch('loadGlobalPlugins')
@@ -345,16 +239,9 @@ export default {
             this.appLoaded = true
         })
 
-        if(import.meta.env.MODE === 'desktop' || import.meta.env.MODE === 'desktop-electron' || import.meta.env.MODE === 'web-standalone') {
-            this.$store.state.flags.isBrowser = false
-        }
-
         if(import.meta.env.MODE === 'web-standalone') {
+            this.$store.state.flags.isBrowser = false
             this.$store.state.flags.isWebStandalone = true
-        }
-
-        if(import.meta.env.MODE === 'desktop-electron') {
-            this.$store.state.flags.isElectron = true
         }
     },
     mounted() {
@@ -386,9 +273,7 @@ export default {
         const savedGithubStarCount = localStorage.getItem(constants.LOCAL_STORAGE_KEY.GITHUB_STAR_COUNT)
         let savedDisablePageViewAnalyticsTracking = localStorage.getItem(constants.LOCAL_STORAGE_KEY.DISABLE_PAGE_VIEW_ANALYTICS_TRACKING)
         const savedDisableSSLVerification = localStorage.getItem(constants.LOCAL_STORAGE_KEY.DISABLE_SSL_VERIFICATION)
-        const savedElectronSwitchToChromiumFetch = localStorage.getItem(constants.LOCAL_STORAGE_KEY.ELECTRON_SWITCH_TO_CHROMIUM_FETCH)
         const savedDisableIframeSandbox = localStorage.getItem(constants.LOCAL_STORAGE_KEY.DISABLE_IFRAME_SANDBOX)
-        const savedDisableAutoUpdate = localStorage.getItem(constants.LOCAL_STORAGE_KEY.DISABLE_AUTO_UPDATE)
         const savedShowTabs = localStorage.getItem(constants.LOCAL_STORAGE_KEY.SHOW_TABS)
         const savedHidePasswordFields = localStorage.getItem(constants.LOCAL_STORAGE_KEY.HIDE_PASSWORD_FIELDS)
         const savedCustomResponseFormats = localStorage.getItem(constants.LOCAL_STORAGE_KEY.CUSTOM_RESPONSE_FORMATS)
@@ -433,14 +318,6 @@ export default {
             }
         }
 
-        if(savedElectronSwitchToChromiumFetch) {
-            try {
-                this.$store.state.flags.electronSwitchToChromiumFetch = JSON.parse(savedElectronSwitchToChromiumFetch)
-            } catch(e) {
-                this.$store.state.flags.electronSwitchToChromiumFetch = false
-            }
-        }
-
         this.$store.state.flags.requestTimeout = getSavedRequestTimeout()
 
         if(savedDisableIframeSandbox) {
@@ -448,14 +325,6 @@ export default {
                 this.$store.state.flags.disableIframeSandbox = JSON.parse(savedDisableIframeSandbox)
             } catch(e) {
                 this.$store.state.flags.disableIframeSandbox = false
-            }
-        }
-
-        if(savedDisableAutoUpdate) {
-            try {
-                this.$store.state.flags.disableAutoUpdate = JSON.parse(savedDisableAutoUpdate)
-            } catch(e) {
-                this.$store.state.flags.disableAutoUpdate = false
             }
         }
 
@@ -490,35 +359,15 @@ export default {
 
         emitter.on('error', this.handleError)
 
-        // the main process keeps the certificates across page reloads, so they are sent even when there are none. Other
-        // builds send requests through the browser, which has no setting for them
-        if(import.meta.env.MODE === 'desktop-electron' || import.meta.env.MODE === 'web-standalone') {
+        if(import.meta.env.MODE === 'web-standalone') {
             getSavedCACertificates().then(caCertificates => {
                 this.$store.state.flags.caCertificates = caCertificates
-
-                if(import.meta.env.MODE === 'desktop-electron') {
-                    this.sendCACertificatesToElectron()
-                }
             }).catch(error => {
                 console.error('Settings > CA Certificates could not be read:', error)
             })
         }
 
         this.$store.state.flags.proxy = getSavedProxySettings()
-
-        if(import.meta.env.MODE === 'desktop-electron') {
-            // the main process keeps the setting across page reloads, so the saved value is sent even when it is the default
-            window.electronIPC.setDisableSSLVerification(this.$store.state.flags.disableSSLVerification)
-            this.sendProxyToElectron()
-            if (!this.$store.state.flags.disableAutoUpdate) {
-                console.log('invoke updateElectronApp')
-                window.electronIPC.updateElectronApp()
-            }
-            const refreshWorkspace = debounce(() => {
-                this.$store.dispatch('refreshWorkspace')
-            }, 500)
-            window.electronIPC.workspaceChanged((...args) => this.onWorkspaceChanged(refreshWorkspace, ...args))
-        }
 
         initStoragePersistence()
     },

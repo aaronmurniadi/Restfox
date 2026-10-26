@@ -16,18 +16,6 @@
             </div>
             <div
                 style="margin-left: 0.5rem; font-size: 0.6rem"
-                v-if="
-                    activeWorkspaceLoaded &&
-                    activeWorkspace._type === 'file' &&
-                    flags.isElectron
-                "
-            >
-                <button class="button" @click="openWorkspaceFolder">
-                    Open Folder
-                </button>
-            </div>
-            <div
-                style="margin-left: 0.5rem; font-size: 0.6rem"
                 v-if="activeWorkspaceLoaded"
             >
                 <button
@@ -148,7 +136,7 @@
                     @click.prevent="openFileWorkspace"
                     class="bl"
                     title="Open an existing file workspace"
-                    v-if="flags.isElectron || flags.isWebStandalone"
+                    v-if="flags.isWebStandalone"
                     >Open File Workspace</a
                 >
                 <a href="#" @click.prevent="backupAndRestore" class="bl"
@@ -219,10 +207,7 @@
         <PluginManagerModal v-model:showModal="showPluginManagerModal" />
         <AddWorkspaceModal
             v-model:showModal="showAddWorkspaceModal"
-            :is-electron="flags.isElectron"
-            :is-file-workspace-supported="
-                flags.isElectron || flags.isWebStandalone
-            "
+            :is-file-workspace-supported="flags.isWebStandalone"
         />
         <SettingsModal v-model:showModal="showSettingsModal" />
         <LogsModal v-model:showModal="showLogsModal"></LogsModal>
@@ -510,43 +495,8 @@ export default {
         backupAndRestore() {
             this.$store.commit("showBackupAndRestoreModal", true);
         },
-        async openWorkspaceFolder() {
-            await window.electronIPC.openFolder(this.activeWorkspace.location);
-        },
         async openFileWorkspace() {
-            if (import.meta.env.MODE === "web-standalone") {
-                this.showAddWorkspaceModal = true;
-                return;
-            }
-            const selectedFolderPath =
-                await window.electronIPC.openFolderSelectionDialog();
-            if (selectedFolderPath) {
-                try {
-                    const workspace =
-                        await window.electronIPC.getWorkspaceAtLocation(
-                            selectedFolderPath,
-                        );
-                    const existingWorkspace = this.$store.state.workspaces.find(
-                        (workspaceItem) =>
-                            workspaceItem.location === selectedFolderPath,
-                    );
-                    if (existingWorkspace) {
-                        console.log(existingWorkspace);
-                        this.setActiveWorkspace(existingWorkspace);
-                    } else {
-                        this.$store.dispatch("createWorkspace", {
-                            name: workspace.name,
-                            _type: "file",
-                            location: selectedFolderPath,
-                            setAsActive: true,
-                        });
-                    }
-                } catch (e) {
-                    this.$toast.error(
-                        "No workspace found in the selected folder",
-                    );
-                }
-            }
+            this.showAddWorkspaceModal = true;
         },
         getThemeName(theme) {
             return theme.charAt(0).toUpperCase() + theme.slice(1);

@@ -1,8 +1,8 @@
-import { logMethodCall } from '../../electron/shared/helpers.js'
+import { logMethodCall } from '../../shared/helpers.js'
 import dotenv from 'dotenv'
 import * as dbHelpers from './db-helpers.js'
 import * as fileUtils from './file-utils.js'
-import { createDatabase } from '../../electron/shared/db.js'
+import { createDatabase } from '../../shared/db.js'
 
 const database = createDatabase(fileUtils, dbHelpers, dotenv)
 const { getIdMap } = database

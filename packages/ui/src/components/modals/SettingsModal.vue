@@ -83,7 +83,7 @@
                         <div style="margin-top: 0.3rem;">Abort a request if it does not complete within this many milliseconds. Set to <span class="code">0</span> for no timeout (unlimited). The timeout also cuts short a response that is still arriving, such as an event stream.</div>
                     </div>
 
-                    <template v-if="flags.isElectron || flags.isWebStandalone">
+                    <template v-if="flags.isWebStandalone">
                         <div class="settings-section-heading">Certificates</div>
 
                         <div>
@@ -108,7 +108,7 @@
                         </div>
                     </template>
 
-                    <template v-if="flags.isElectron || flags.isWebStandalone">
+                    <template v-if="flags.isWebStandalone">
                         <div class="settings-section-heading">Connection</div>
 
                         <div>
@@ -118,8 +118,7 @@
                                 <option value="off">Off</option>
                                 <option value="custom">Custom</option>
                             </select>
-                            <div style="margin-top: 0.3rem;" v-if="proxy.mode === 'system' && flags.isElectron">Uses your operating system's proxy settings, a PAC script included. When the system has no proxy, the HTTP_PROXY, HTTPS_PROXY and NO_PROXY environment variables apply.</div>
-                            <div style="margin-top: 0.3rem;" v-if="proxy.mode === 'system' && flags.isWebStandalone">Uses the HTTP_PROXY, HTTPS_PROXY and NO_PROXY environment variables of the server running Restfox.</div>
+                            <div style="margin-top: 0.3rem;" v-if="proxy.mode === 'system'">Uses the HTTP_PROXY, HTTPS_PROXY and NO_PROXY environment variables of the server running Restfox.</div>
                             <div style="margin-top: 0.3rem;" v-if="proxy.mode === 'off'">Connects directly, even when the system has a proxy.</div>
                             <template v-if="proxy.mode === 'custom'">
                                 <div style="padding-top: 0.5rem">
@@ -146,12 +145,6 @@
                             <div style="margin-top: 0.3rem;">Applies to requests, scripts, gRPC, WebSocket and Socket.IO. localhost always connects directly.</div>
                         </div>
 
-                        <div style="padding-top: 1rem" v-if="flags.isElectron">
-                            <label style="display: flex;">
-                                <input type="checkbox" v-model="electronSwitchToChromiumFetch"> <div style="margin-left: 0.5rem;">Switch to Chromium Fetch</div>
-                            </label>
-                            <div style="margin-left: 1.3rem; margin-top: 0.3rem;">Tick this if you're not able to make any requests despite the server being reachable. This is not recommended for most people and is only provided to temporarily alleviate issues with firewalls and vpns. See <a href="https://github.com/flawiddsouza/Restfox/issues/86" target="_blank">this link</a> for more info.</div>
-                        </div>
                     </template>
 
                     <div class="settings-section-heading">Responses</div>
@@ -195,14 +188,6 @@
                         <div style="margin-left: 1.3rem; margin-top: 0.3rem;">Ticking this will remove iframe sandbox restrictions. See <a href="https://developer.mozilla.org/en-US/docs/Web/HTML/Element/iframe#sandbox" target="_blank">this link</a> for more info.</div>
                     </div>
 
-                    <template v-if="flags.isElectron">
-                        <div style="padding-top: 1rem">
-                            <label style="display: flex;">
-                                <input type="checkbox" v-model="disableAutoUpdate"> <div style="margin-left: 0.5rem;">Disable Automatic Updates</div>
-                            </label>
-                            <div style="margin-left: 1.3rem; margin-top: 0.3rem;">Ticking this will disable automatic updates</div>
-                        </div>
-                    </template>
                 </div>
             </div>
 
@@ -245,10 +230,8 @@ export default {
             caCertificates: null,
             caCertificatesError: '',
             proxy: { ...DEFAULT_PROXY_SETTINGS },
-            electronSwitchToChromiumFetch: false,
             requestTimeout: 0,
             disableIframeSandbox: false,
-            disableAutoUpdate: false,
             globalUserAgent: '',
             indentSize: constants.EDITOR_CONFIG.indent_size,
             showTabs: false,
@@ -303,10 +286,6 @@ export default {
             },
             deep: true
         },
-        electronSwitchToChromiumFetch() {
-            localStorage.setItem(constants.LOCAL_STORAGE_KEY.ELECTRON_SWITCH_TO_CHROMIUM_FETCH, this.electronSwitchToChromiumFetch)
-            this.$store.state.flags.electronSwitchToChromiumFetch = this.electronSwitchToChromiumFetch
-        },
         requestTimeout() {
             const value = Number.isFinite(this.requestTimeout) && this.requestTimeout > 0 ? Math.floor(this.requestTimeout) : 0
             localStorage.setItem(constants.LOCAL_STORAGE_KEY.REQUEST_TIMEOUT, value.toString())
@@ -315,10 +294,6 @@ export default {
         disableIframeSandbox() {
             localStorage.setItem(constants.LOCAL_STORAGE_KEY.DISABLE_IFRAME_SANDBOX, this.disableIframeSandbox)
             this.$store.state.flags.disableIframeSandbox = this.disableIframeSandbox
-        },
-        disableAutoUpdate() {
-            localStorage.setItem(constants.LOCAL_STORAGE_KEY.DISABLE_AUTO_UPDATE, this.disableAutoUpdate)
-            this.$store.state.flags.disableAutoUpdate = this.disableAutoUpdate
         },
         globalUserAgent() {
             localStorage.setItem(constants.LOCAL_STORAGE_KEY.GLOBAL_USER_AGENT, this.globalUserAgent)
@@ -413,18 +388,12 @@ export default {
         resetProxy() {
             localStorage.removeItem(constants.LOCAL_STORAGE_KEY.PROXY)
         },
-        resetElectronSwitchToChromiumFetch() {
-            localStorage.removeItem(constants.LOCAL_STORAGE_KEY.ELECTRON_SWITCH_TO_CHROMIUM_FETCH)
-        },
         resetRequestTimeout() {
             localStorage.removeItem(constants.LOCAL_STORAGE_KEY.REQUEST_TIMEOUT)
             this.requestTimeout = 0
         },
         resetDisableIframeSandbox() {
             localStorage.removeItem(constants.LOCAL_STORAGE_KEY.DISABLE_IFRAME_SANDBOX)
-        },
-        resetDisableAutoUpdate() {
-            localStorage.removeItem(constants.LOCAL_STORAGE_KEY.DISABLE_AUTO_UPDATE)
         },
         resetGlobalUserAgent() {
             localStorage.removeItem(constants.LOCAL_STORAGE_KEY.GLOBAL_USER_AGENT)
@@ -463,10 +432,8 @@ export default {
             this.resetDisableSSLVerification()
             await this.resetCACertificates()
             this.resetProxy()
-            this.resetElectronSwitchToChromiumFetch()
             this.resetRequestTimeout()
             this.resetDisableIframeSandbox()
-            this.resetDisableAutoUpdate()
             this.resetGlobalUserAgent()
             this.resetIndentSize()
             this.resetShowTabs()
@@ -481,9 +448,7 @@ export default {
             const savedResponsePanelRatio = localStorage.getItem(constants.LOCAL_STORAGE_KEY.RESPONSE_PANEL_RATIO)
             const savedDisablePageViewAnalyticsTracking = localStorage.getItem(constants.LOCAL_STORAGE_KEY.DISABLE_PAGE_VIEW_ANALYTICS_TRACKING)
             const savedDisableSSLVerification = localStorage.getItem(constants.LOCAL_STORAGE_KEY.DISABLE_SSL_VERIFICATION)
-            const savedElectronSwitchToChromiumFetch = localStorage.getItem(constants.LOCAL_STORAGE_KEY.ELECTRON_SWITCH_TO_CHROMIUM_FETCH)
             const savedDisableIframeSandbox = localStorage.getItem(constants.LOCAL_STORAGE_KEY.DISABLE_IFRAME_SANDBOX)
-            const savedDisableAutoUpdate = localStorage.getItem(constants.LOCAL_STORAGE_KEY.DISABLE_AUTO_UPDATE)
             const savedGlobalUserAgent = localStorage.getItem(constants.LOCAL_STORAGE_KEY.GLOBAL_USER_AGENT)
             const savedIndentSize = localStorage.getItem(constants.LOCAL_STORAGE_KEY.INDENT_SIZE) || 4
             const savedShowTabs = localStorage.getItem(constants.LOCAL_STORAGE_KEY.SHOW_TABS) || true
@@ -517,18 +482,10 @@ export default {
                 }
             }
 
-            if(savedElectronSwitchToChromiumFetch) {
-                try {
-                    this.electronSwitchToChromiumFetch = JSON.parse(savedElectronSwitchToChromiumFetch)
-                } catch (e) {
-                    this.electronSwitchToChromiumFetch = false
-                }
-            }
-
             this.requestTimeout = getSavedRequestTimeout()
             this.proxy = getSavedProxySettings() ?? { ...DEFAULT_PROXY_SETTINGS }
             this.caCertificatesError = ''
-            if(this.flags.isElectron || this.flags.isWebStandalone) {
+            if(this.flags.isWebStandalone) {
                 getSavedCACertificates().then(caCertificates => {
                     this.caCertificates = caCertificates
                 }).catch(error => {
@@ -541,14 +498,6 @@ export default {
                     this.disableIframeSandbox = JSON.parse(savedDisableIframeSandbox)
                 } catch (e) {
                     this.disableIframeSandbox = false
-                }
-            }
-
-            if(savedDisableAutoUpdate) {
-                try {
-                    this.disableAutoUpdate = JSON.parse(savedDisableAutoUpdate)
-                } catch (e) {
-                    this.disableAutoUpdate = false
                 }
             }
 

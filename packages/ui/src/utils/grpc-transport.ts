@@ -1,6 +1,6 @@
-// How the UI reaches the gRPC engine, which runs in Node since a page cannot make gRPC calls: Electron's main process
-// through IPC (packages/electron/src/app.js), or web-standalone's server through its /grpc routes
-// (packages/web-standalone/app.js). The browser build and the extension app have neither
+// How the UI reaches the gRPC engine, which runs in Node since a page cannot make gRPC calls:
+// web-standalone's server through its /grpc routes (packages/web-standalone/app.js). The browser
+// build and the extension app have neither
 import { nanoid } from 'nanoid'
 import type { GrpcProtoFile } from '@/global'
 import { getSavedCACertificates, getSavedProxySettings, isWebStandaloneBuild, registerCACertificates, registerProxySettings } from '@/helpers'
@@ -114,12 +114,8 @@ function isTerminalEvent(grpcEvent: GrpcCallEvent) {
     return grpcEvent.type === 'status' || grpcEvent.type === 'error'
 }
 
-function hasElectronGrpc(): boolean {
-    return typeof window !== 'undefined' && typeof window.electronIPC?.grpcStartCall === 'function'
-}
-
 export function isGrpcAvailable(): boolean {
-    return hasElectronGrpc() || isWebStandaloneBuild()
+    return isWebStandaloneBuild()
 }
 
 // IPC copies its arguments, and a reactive object from the store is a proxy it cannot copy
@@ -130,22 +126,6 @@ function toPlain<T>(value: T): T {
 // signal stops the load and closes its connection
 export async function loadGrpcSchema(spec: GrpcSchemaSpec, signal?: AbortSignal): Promise<GrpcSchema> {
     signal?.throwIfAborted()
-
-    if(hasElectronGrpc()) {
-        // the main process stops the load by its id
-        const loadId = nanoid()
-        const cancel = () => window.electronIPC.grpcCancelSchemaLoad(loadId)
-        signal?.addEventListener('abort', cancel, { once: true })
-        try {
-            const { schema, error, code, grpcStatus, errorWithoutValues } = await window.electronIPC.grpcLoadSchema({ ...toPlain(spec), loadId })
-            if(error !== undefined) {
-                throw createGrpcError(error, code, grpcStatus, errorWithoutValues)
-            }
-            return schema
-        } finally {
-            signal?.removeEventListener('abort', cancel)
-        }
-    }
 
     if(isWebStandaloneBuild()) {
         // the server stops the load when the request goes away
@@ -161,14 +141,6 @@ export async function loadGrpcSchema(spec: GrpcSchemaSpec, signal?: AbortSignal)
 
 // a gRPC message imported from Insomnia in ProtoJSON, see InsomniaGrpcMessageConverter in helpers.ts
 export async function convertInsomniaGrpcMessage(spec: { protoFiles: GrpcProtoFile[], service: string, method: string, text: string }): Promise<string> {
-    if(hasElectronGrpc()) {
-        const { text, error } = await window.electronIPC.grpcConvertInsomniaMessage(toPlain(spec))
-        if(error !== undefined) {
-            throw new Error(error)
-        }
-        return text
-    }
-
     if(isWebStandaloneBuild()) {
         const response = await fetch('/grpc/insomnia-message', {
             method: 'POST',
@@ -203,10 +175,6 @@ export function startGrpcCall(spec: GrpcCallSpec, onEvent: (grpcEvent: GrpcCallE
 
     const fail = (message: string) => deliver({ type: 'error', message, time: Date.now() - startedAt })
 
-    if(hasElectronGrpc()) {
-        return startElectronGrpcCall(spec, callId, deliver, fail, () => ended)
-    }
-
     if(isWebStandaloneBuild()) {
         return startServerGrpcCall(spec, callId, deliver, fail, () => ended, startedAt)
     }
@@ -217,56 +185,6 @@ export function startGrpcCall(spec: GrpcCallSpec, onEvent: (grpcEvent: GrpcCallE
         send: () => undefined,
         end: () => undefined,
         cancel: () => undefined,
-    }
-}
-
-// Electron pushes the events of every call on one channel, a call's handler is found by its call id
-const electronGrpcEventHandlers = new Map<string, (grpcEvent: GrpcCallEvent) => void>()
-let electronGrpcEventsSource: unknown = null
-
-function listenToElectronGrpcEvents() {
-    if(electronGrpcEventsSource === window.electronIPC) {
-        return
-    }
-    electronGrpcEventsSource = window.electronIPC
-    window.electronIPC.onGrpcEvent((callId: string, grpcEvent: GrpcCallEvent) => {
-        electronGrpcEventHandlers.get(callId)?.(grpcEvent)
-    })
-}
-
-function startElectronGrpcCall(spec: GrpcCallSpec, callId: string, deliver: (grpcEvent: GrpcCallEvent) => void, fail: (message: string) => void, isEnded: () => boolean): GrpcCallTransport {
-    listenToElectronGrpcEvents()
-
-    // the events arrive only as pushed messages, the invoke reply can land between them and carries nothing
-    electronGrpcEventHandlers.set(callId, grpcEvent => {
-        if(isTerminalEvent(grpcEvent)) {
-            electronGrpcEventHandlers.delete(callId)
-        }
-        deliver(grpcEvent)
-    })
-
-    window.electronIPC.grpcStartCall(toPlain({ ...spec, callId })).catch((error: Error) => {
-        electronGrpcEventHandlers.delete(callId)
-        fail(error.message)
-    })
-
-    // the main process handles these in order after the start, and ignores them once the call has ended
-    return {
-        send(json) {
-            if(!isEnded()) {
-                window.electronIPC.grpcSendMessage(callId, json).catch(() => undefined)
-            }
-        },
-        end() {
-            if(!isEnded()) {
-                window.electronIPC.grpcEndCall(callId).catch(() => undefined)
-            }
-        },
-        cancel() {
-            if(!isEnded()) {
-                window.electronIPC.grpcCancelCall(callId).catch(() => undefined)
-            }
-        },
     }
 }
 

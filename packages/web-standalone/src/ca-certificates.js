@@ -1,1 +1,1 @@
-export * from '../../electron/shared/ca-certificates.js'
+export * from '../../shared/ca-certificates.js'

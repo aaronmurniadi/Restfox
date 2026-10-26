@@ -1,151 +1,21 @@
-name: Publish Electron Binaries
+name: Publish Web Releases
 
 on:
   workflow_dispatch:
     inputs:
       job-to-run:
-        description: 'Job to run (leave empty to run all)'
+        description: "Job to run (leave empty to run all)"
         required: false
-        default: ''
+        default: ""
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - "v[0-9]+.[0-9]+.[0-9]+"
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   NODE_VERSION: 26
-  # Electron Forge unpacks Electron with extract-zip, which stops halfway on Node 26 and exits 0, so the Electron jobs
-  # would pass with nothing built (nodejs/node#63487). Node only runs the build tools there, the app runs on Electron's.
-  ELECTRON_BUILD_NODE_VERSION: 24
 
 jobs:
-  build-electron-linux:
-    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.job-to-run == 'build-electron-linux' || github.event.inputs.job-to-run == 'build-electron-snap' || github.event.inputs.job-to-run == '' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.ELECTRON_BUILD_NODE_VERSION }}
-      - name: Build UI
-        working-directory: ./packages/ui
-        run: |
-          npm ci
-          npm run build-desktop-electron
-      # - name: Install flatpak dependencies
-      #   run: |
-      #     sudo apt-get install -y flatpak-builder
-      #     flatpak --user remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-      - name: Build deb, rpm, flatpak
-        working-directory: ./packages/electron
-        run: |
-          npm ci
-          export DEBUG=@malept/flatpak-bundler # required to see flatpak build logs
-          npm run publish
-  build-electron-windows:
-    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.job-to-run == 'build-electron-windows' || github.event.inputs.job-to-run == '' }}
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.ELECTRON_BUILD_NODE_VERSION }}
-      - name: Build UI
-        working-directory: ./packages/ui
-        run: |
-          npm ci
-          npm run build-desktop-electron
-      - name: Build windows installer
-        working-directory: ./packages/electron
-        run: |
-          npm ci
-          npm run publish
-  build-electron-mac:
-    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.job-to-run == 'build-electron-mac' || github.event.inputs.job-to-run == '' }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        # macos-26 is arm64, macos-26-intel is x86_64 (so we get builds for both architectures)
-        # see https://github.com/actions/runner-images#available-images for more info
-        os: [macos-26, macos-26-intel]
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.ELECTRON_BUILD_NODE_VERSION }}
-      - name: Build UI
-        working-directory: ./packages/ui
-        run: |
-          npm ci
-          npm run build-desktop-electron
-      - name: Add macOS certs
-        run: chmod +x scripts/add-osx-cert.sh && ./scripts/add-osx-cert.sh
-        env:
-          CERTIFICATE_OSX_APPLICATION: ${{ secrets.CERTIFICATE_OSX_APPLICATION }}
-          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
-      - name: Build macos binaries
-        working-directory: ./packages/electron
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          npm ci
-          npm run publish
-  build-electron-snap:
-    if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.job-to-run == 'build-electron-snap' || github.event.inputs.job-to-run == '' }}
-    needs: [build-electron-linux]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: Setup Node
-        uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.ELECTRON_BUILD_NODE_VERSION }}
-      - name: Build UI
-        working-directory: ./packages/ui
-        run: |
-          npm ci
-          npm run build-desktop-electron
-      - name: Build snap package
-        working-directory: ./packages/electron
-        run: |
-          npm ci
-          npm run build-snap
-      # electron-builder 26.15.0 to 26.15.6 left the snap template packed, so the build passed and every snap failed
-      # at launch with "desktop-init.sh: No such file or directory"
-      - name: Check the snap holds its startup scripts
-        run: |
-          sudo apt-get install -y squashfs-tools
-          unsquashfs -l ./packages/electron/dist/*.snap > snap-files.txt
-          for f in desktop-init.sh desktop-common.sh desktop-gnome-specific.sh; do
-            grep -qx "squashfs-root/$f" snap-files.txt || { echo "The snap is missing $f"; exit 1; }
-          done
-      - name: Install Snapcraft
-        run: |
-          sudo apt-get install snapd
-          sudo snap install snapcraft --classic
-      - name: Set up Snap Store credentials & publish snap package
-        run: |
-          echo "${{ secrets.SNAP_STORE_TOKEN }}" | base64 -d > credentials.snapcraft
-          export SNAPCRAFT_STORE_CREDENTIALS=$(cat credentials.snapcraft)
-          snapcraft upload --release=candidate ./packages/electron/dist/*.snap
-      - name: Set asset name
-        run: echo "SNAP_FILE_NAME=$(basename $(ls ./packages/electron/dist/*.snap))" >> $GITHUB_ENV
-      - name: Upload snap to GitHub release
-        run: |
-          node scripts/upload-file-to-latest-draft-release.js ./packages/electron/dist/${{ env.SNAP_FILE_NAME }}
   publish-chrome-extension:
     # Google admits the store sign-in only for a v tag, so a manual run on a branch skips this job
     if: ${{ startsWith(github.ref, 'refs/tags/v') && (github.event_name != 'workflow_dispatch' || github.event.inputs.job-to-run == 'publish-chrome-extension' || github.event.inputs.job-to-run == '') }}
@@ -165,7 +35,7 @@ jobs:
         working-directory: ./packages/ui
         run: |
           npm ci
-          npm run build-desktop
+          npm run build-extension
       - name: Zip the extension app
         working-directory: ./packages/browser-extension/v3-app
         run: npm run zip
@@ -234,7 +104,6 @@ jobs:
           docker push --all-tags flawiddsouza/restfox
   update-release-notes:
     if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.job-to-run == '' }}
-    needs: [build-electron-linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
