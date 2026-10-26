@@ -1,4 +1,5 @@
 import { toRaw } from 'vue'
+import { revealedSecretValues } from '@/utils/secret-encryption'
 
 // Secret paths live beside the resolved environment, not inside it, so a script that lists the keys never sees them
 // and JSON copies of the environment, such as an export, cannot carry the values away. Vue keeps that object behind
@@ -57,7 +58,7 @@ function collectPaths(object: any, paths: string[] = [], parent = ''): string[] 
 }
 
 export function secretPathsIn(secrets: any): string[] {
-    return collectPaths(secrets)
+    return collectPaths(revealedSecretValues(secrets))
 }
 
 // a later public layer with the same name wins, and the name stops being secret
@@ -78,15 +79,16 @@ export function applyPublicLayer(environment: Record<string, any>, layer: Record
 }
 
 export function applySecretLayer(environment: Record<string, any>, secrets: Record<string, any> | undefined, secretPaths: Set<string>) {
-    if (!secrets) {
+    const values = revealedSecretValues(secrets)
+    if (!values) {
         return
     }
 
-    for (const path of collectPaths(secrets)) {
+    for (const path of collectPaths(values)) {
         secretPaths.add(path)
     }
 
-    Object.assign(environment, secrets)
+    Object.assign(environment, values)
 }
 
 export function activeSecrets(scope: { environments?: { name?: string, secrets?: Record<string, any> }[], currentEnvironment?: any } | null | undefined) {
@@ -100,16 +102,17 @@ export function activeSecrets(scope: { environments?: { name?: string, secrets?:
 
 // a script that sets a name already kept as a secret updates that secret, so the value stays masked
 export function ownsSecretKey(secrets: Record<string, any> | undefined, objectPath: string) {
-    if (!secrets) {
+    const values = revealedSecretValues(secrets)
+    if (!values) {
         return false
     }
 
-    if (Object.prototype.hasOwnProperty.call(secrets, objectPath)) {
+    if (Object.prototype.hasOwnProperty.call(values, objectPath)) {
         return true
     }
 
     const topLevelKey = objectPath.split('.')[0].split('[')[0]
-    return topLevelKey !== '' && Object.prototype.hasOwnProperty.call(secrets, topLevelKey)
+    return topLevelKey !== '' && Object.prototype.hasOwnProperty.call(values, topLevelKey)
 }
 
 export function environmentsForExport(environments: any[] | undefined) {
@@ -150,7 +153,7 @@ export async function buildResolvedEnvironment(
     }
 
     applyPublicLayer(environment, await resolveLayer(workspace.globals), secretPaths)
-    applySecretLayer(environment, await resolveLayer(workspace.globalSecrets), secretPaths)
+    applySecretLayer(environment, await resolveLayer(revealedSecretValues(workspace.globalSecrets)), secretPaths)
 
     const dotEnv = workspace.dotEnv
     if (workspace._type === 'file' && dotEnv) {
@@ -162,11 +165,11 @@ export async function buildResolvedEnvironment(
     }
 
     applyPublicLayer(environment, await resolveLayer(workspace.environment), secretPaths)
-    applySecretLayer(environment, await resolveLayer(activeSecrets(workspace)), secretPaths)
+    applySecretLayer(environment, await resolveLayer(revealedSecretValues(activeSecrets(workspace))), secretPaths)
 
     for (const parent of parents) {
         applyPublicLayer(environment, await resolveLayer(parent.environment), secretPaths)
-        applySecretLayer(environment, await resolveLayer(activeSecrets(parent)), secretPaths)
+        applySecretLayer(environment, await resolveLayer(revealedSecretValues(activeSecrets(parent))), secretPaths)
     }
 
     attachSecretPaths(environment, secretPaths)

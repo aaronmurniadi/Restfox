@@ -1,11 +1,16 @@
 // @vitest-environment edge-runtime
 
-import { describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test } from 'vitest'
 import { reactive } from 'vue'
 import { SendResolver, substituteEnvironmentVariables } from '@/helpers'
 import { attachSecretPaths, buildResolvedEnvironment, isSecretPath, secretPathsOf } from '@/utils/environment-secrets'
+import { createSecretSession, lockSecretSession, revealedSecretValues, sealSecretValues } from '@/utils/secret-encryption'
 
 const substitute = (environment: any, text: string) => substituteEnvironmentVariables(environment, text, { resolvePromptTags: false })
+
+afterEach(() => {
+    lockSecretSession()
+})
 
 describe('buildResolvedEnvironment', () => {
     test('a workspace value can use a global, and a later folder overrides both', async () => {
@@ -56,6 +61,47 @@ describe('buildResolvedEnvironment', () => {
 
         expect(isSecretPath('token', secretPathsOf(environment))).toBe(true)
         expect(await substituteEnvironmentVariables(environment, '{{host}}/users?token={{token}}', { maskSecrets: true, tagTrigger: false })).toBe('https://example.com/users?token=******')
+    })
+
+    test('a locked secret stays out of the resolved environment', async () => {
+        const environment = await buildResolvedEnvironment(
+            {
+                globalSecrets: {
+                    restfoxEncryptedSecrets: 1,
+                    kdf: 'PBKDF2',
+                    hash: 'SHA-256',
+                    iterations: 600_000,
+                    salt: 'c2FsdA==',
+                    verifier: { iv: 'aXY=', ct: 'Y3Q=' },
+                    values: { token: { iv: 'aXY=', ct: 'c3VwZXItc2VjcmV0' } },
+                },
+                environment: { host: 'https://example.com' },
+            },
+            [],
+            substitute,
+        )
+
+        expect(environment.host).toBe('https://example.com')
+        expect(environment.token).toBeUndefined()
+        expect(environment.values).toBeUndefined()
+        expect(JSON.stringify(environment)).not.toContain('c3VwZXItc2VjcmV0')
+    })
+
+    test('an unlocked secret resolves while the stored JSON keeps only ciphertext', async () => {
+        await createSecretSession('correct horse', 1_000)
+        const globalSecrets = await sealSecretValues({ token: 'super-secret-value' })
+        expect(JSON.stringify(globalSecrets)).not.toContain('super-secret-value')
+
+        const environment = await buildResolvedEnvironment(
+            { globalSecrets, environment: {} },
+            [],
+            substitute,
+        )
+
+        expect(environment.token).toBe('super-secret-value')
+        expect(isSecretPath('token', secretPathsOf(environment))).toBe(true)
+        lockSecretSession()
+        expect(revealedSecretValues(globalSecrets)).toBeUndefined()
     })
 })
 

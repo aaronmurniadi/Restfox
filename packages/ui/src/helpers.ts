@@ -36,6 +36,7 @@ import constants from '@/constants'
 import { handleResponseTag } from '@/utils/tag'
 import { MASKED_PREVIEW, getPromptPreviewValue, handlePromptTag } from '@/utils/prompt-tag'
 import { isSecretPath, ownsSecretKey, secretPathsOf } from '@/utils/environment-secrets'
+import { isEncryptedSecrets, revealedSecretValues, sealSecretValues } from '@/utils/secret-encryption'
 import { handleTags } from '@/parsers/tag'
 import type { ParsedResult } from '@/parsers/tag'
 import { getSettingsFile, putSettingsFile, deleteSettingsFile } from '@/db'
@@ -2544,6 +2545,24 @@ export function generateId() {
     return nanoid()
 }
 
+function saveUpdatedSecret(secrets: Record<string, any> | undefined, objectPath: string, value: string, assign: (secrets: Record<string, any>) => void, persist: () => void) {
+    const plain = revealedSecretValues(secrets)
+    if (!plain) {
+        return
+    }
+
+    setObjectPathValue(plain, objectPath, value)
+    if (!isEncryptedSecrets(secrets)) {
+        persist()
+        return
+    }
+
+    void sealSecretValues(plain).then(sealed => {
+        assign(sealed)
+        persist()
+    })
+}
+
 export function setEnvironmentVariable(store: ActionContext<State, State>, objectPath: string, value: string) {
     try {
         if(store.state.activeWorkspace === null) {
@@ -2561,22 +2580,28 @@ export function setEnvironmentVariable(store: ActionContext<State, State>, objec
         const currentEnvironment = environmentsToModify.find(environmentItem => environmentItem.name === (store.state.activeWorkspace!.currentEnvironment ?? 'Default'))
 
         if(currentEnvironment && ownsSecretKey(currentEnvironment.secrets, objectPath)) {
-            setObjectPathValue(currentEnvironment.secrets, objectPath, value)
-            store.commit('updateWorkspaceEnvironments', {
-                workspaceId: store.state.activeWorkspace._id,
-                environments: environmentsToModify
+            saveUpdatedSecret(currentEnvironment.secrets, objectPath, value, sealed => {
+                currentEnvironment.secrets = sealed
+            }, () => {
+                store.commit('updateWorkspaceEnvironments', {
+                    workspaceId: store.state.activeWorkspace!._id,
+                    environments: environmentsToModify
+                })
+                store.dispatch('reloadTabEnvironmentResolved')
             })
-            store.dispatch('reloadTabEnvironmentResolved')
             return
         }
 
         if(ownsSecretKey(store.state.activeWorkspace.globalSecrets, objectPath)) {
-            setObjectPathValue(store.state.activeWorkspace.globalSecrets, objectPath, value)
-            store.commit('updateWorkspaceGlobalSecrets', {
-                workspaceId: store.state.activeWorkspace._id,
-                globalSecrets: store.state.activeWorkspace.globalSecrets
+            saveUpdatedSecret(store.state.activeWorkspace.globalSecrets, objectPath, value, sealed => {
+                store.state.activeWorkspace!.globalSecrets = sealed
+            }, () => {
+                store.commit('updateWorkspaceGlobalSecrets', {
+                    workspaceId: store.state.activeWorkspace!._id,
+                    globalSecrets: store.state.activeWorkspace!.globalSecrets
+                })
+                store.dispatch('reloadTabEnvironmentResolved')
             })
-            store.dispatch('reloadTabEnvironmentResolved')
             return
         }
 
@@ -2628,12 +2653,15 @@ export function setParentEnvironmentVariable(store: ActionContext<State, State>,
             const currentEnvironment = targetFolder.environments.find((env: any) => env.name === currentEnvironmentName) as any
 
             if(currentEnvironment && ownsSecretKey(currentEnvironment.secrets, objectPath)) {
-                setObjectPathValue(currentEnvironment.secrets, objectPath, value)
-                store.commit('updateCollectionItemEnvironments', {
-                    collectionId: targetFolderId,
-                    environments: targetFolder.environments
+                saveUpdatedSecret(currentEnvironment.secrets, objectPath, value, sealed => {
+                    currentEnvironment.secrets = sealed
+                }, () => {
+                    store.commit('updateCollectionItemEnvironments', {
+                        collectionId: targetFolderId,
+                        environments: targetFolder.environments
+                    })
+                    store.dispatch('reloadTabEnvironmentResolved')
                 })
-                store.dispatch('reloadTabEnvironmentResolved')
                 return
             }
         }

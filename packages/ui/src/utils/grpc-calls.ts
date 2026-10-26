@@ -33,6 +33,7 @@ import {
     parseGrpcTarget,
 } from '@/utils/grpc'
 import { type GrpcCallTransport, isGrpcAvailable, loadGrpcSchema, startGrpcCall } from '@/utils/grpc-transport'
+import { mayUseLockedSecret, unlockSecretsForSend } from '@/utils/secret-send'
 
 // how long a server stream runs before the panel shows its messages as they arrive, so one that ends at once goes
 // straight to its result
@@ -174,7 +175,7 @@ export function getGrpcProtoFiles(item: CollectionItem): GrpcProtoFile[] | null 
 function hashText(text: string) {
     let h1 = 0xdeadbeef
     let h2 = 0x41c6ce57
-    for(let index = 0; index < text.length; index++) {
+    for (let index = 0; index < text.length; index++) {
         const code = text.charCodeAt(index)
         h1 = Math.imul(h1 ^ code, 2654435761)
         h2 = Math.imul(h2 ^ code, 1597334677)
@@ -185,10 +186,10 @@ function hashText(text: string) {
 }
 
 export function getGrpcSchemaKey(target: GrpcTarget | null, protoFiles: GrpcProtoFile[] | null) {
-    if(protoFiles) {
+    if (protoFiles) {
         return `proto:${hashText(JSON.stringify(protoFiles.map(protoFile => [protoFile.path, protoFile.text])))}`
     }
-    if(target === null) {
+    if (target === null) {
         return null
     }
     return `reflection:${target.tls ? 'tls' : 'plaintext'}:${target.address}`
@@ -199,7 +200,7 @@ const PROMPT_TAG_REGEX = /{% prompt\(/
 // Whether loading methods would ask a prompt, which only an action of the user may do, so automatic loads skip it
 async function asksPrompt(item: CollectionItem, environment: any, parentHeaders: Record<string, string[]>, parentAuthentication: RequestAuthentication | undefined, texts: string[]) {
     const authentications = [item.authentication]
-    if(getAuthenticationType(item.authentication) === 'inherit') {
+    if (getAuthenticationType(item.authentication) === 'inherit') {
         authentications.push(parentAuthentication)
     }
     const allTexts = [
@@ -209,9 +210,9 @@ async function asksPrompt(item: CollectionItem, environment: any, parentHeaders:
         ...authentications.filter(authentication => authentication && !authentication.disabled).map(authentication => JSON.stringify(authentication)),
         JSON.stringify(environment?.GLOBAL_HEADERS ?? {}),
     ]
-    for(const text of allTexts) {
+    for (const text of allTexts) {
         const textResolved = await substituteEnvironmentVariables(environment, text ?? '', { tagTrigger: false, noError: true, resolvePromptTags: false, workspaceId: item.workspaceId })
-        if(PROMPT_TAG_REGEX.test(textResolved)) {
+        if (PROMPT_TAG_REGEX.test(textResolved)) {
             return true
         }
     }
@@ -237,10 +238,10 @@ function isSSLVerificationDisabled(store: Store<State>) {
 const PROTO_ONLY_TARGET: GrpcTarget = { address: 'localhost:443', host: 'localhost', port: 443, tls: true }
 
 function describeError(error: any) {
-    if(typeof error === 'string') {
+    if (typeof error === 'string') {
         return error
     }
-    if(error?.cause === 'display-error' || error?.message) {
+    if (error?.cause === 'display-error' || error?.message) {
         return String(error.message)
     }
     return 'The call failed'
@@ -259,16 +260,16 @@ function waitForSchemaLoad(schemaLoad: SchemaLoad, signal?: AbortSignal): Promis
     let stoppedWaiting: () => void = () => undefined
     const stopWaiting = () => {
         schemaLoad.waiting--
-        if(schemaLoad.waiting === 0) {
+        if (schemaLoad.waiting === 0) {
             schemaLoad.abortController.abort()
         }
         stoppedWaiting()
     }
-    if(signal?.aborted) {
+    if (signal?.aborted) {
         stopWaiting()
         return Promise.resolve(SCHEMA_LOAD_NOT_WAITED_ON)
     }
-    if(!signal) {
+    if (!signal) {
         return schemaLoad.promise
     }
     signal.addEventListener('abort', stopWaiting, { once: true })
@@ -291,7 +292,7 @@ function waitForRunningSchemaLoad(key: string) {
 async function runSchemaLoad(key: string, metadataItemKey: string | null, load: (signal: AbortSignal) => Promise<GrpcSchema>, signal?: AbortSignal): Promise<SchemaLoadResult> {
     const loadNumber = ++schemaLoadCount
     const settingsChangesAtStart = connectionSettingsChanges
-    if(!(key in grpcSchemas)) {
+    if (!(key in grpcSchemas)) {
         grpcSchemas[key] = { loading: true, schema: null, loadedAt: null, error: null, errorCode: null, failedAt: null }
     }
     grpcSchemas[key].loading = true
@@ -299,7 +300,7 @@ async function runSchemaLoad(key: string, metadataItemKey: string | null, load: 
     // a newer load of the same key answers for it
     const isLatestLoad = () => schemaLoads.get(key)?.loadNumber === loadNumber
     const endLoad = () => {
-        if(isLatestLoad()) {
+        if (isLatestLoad()) {
             grpcSchemas[key].loading = false
             schemaLoads.delete(key)
         }
@@ -308,20 +309,20 @@ async function runSchemaLoad(key: string, metadataItemKey: string | null, load: 
     // a stopped load ends at once, as the desktop app answers the abort only later, so a caller from then on loads again
     abortController.signal.addEventListener('abort', endLoad, { once: true })
 
-    const promise = (async(): Promise<SchemaLoadResult> => {
+    const promise = (async (): Promise<SchemaLoadResult> => {
         try {
             const schema = markRaw(await load(abortController.signal))
-            if(isLatestLoad()) {
+            if (isLatestLoad()) {
                 Object.assign(grpcSchemas[key], { schema, loadedAt: Date.now(), error: null, errorCode: null, failedAt: null })
                 schemaFailedItemKeys.delete(key)
             }
             return { schema, error: null, connectionStatus: null }
-        } catch(error: any) {
+        } catch (error: any) {
             // a load that failed under settings changed since is not kept, so the next load tries the new ones. One
             // that no caller waited on anymore did not fail and leaves the methods as they were
-            if(isLatestLoad() && settingsChangesAtStart === connectionSettingsChanges && !abortController.signal.aborted) {
+            if (isLatestLoad() && settingsChangesAtStart === connectionSettingsChanges && !abortController.signal.aborted) {
                 Object.assign(grpcSchemas[key], { error: describeError(error), errorCode: error?.code ?? null, failedAt: Date.now() })
-                if(metadataItemKey !== null && error?.code !== 'CONNECTION_FAILED') {
+                if (metadataItemKey !== null && error?.code !== 'CONNECTION_FAILED') {
                     schemaFailedItemKeys.set(key, metadataItemKey)
                 } else {
                     schemaFailedItemKeys.delete(key)
@@ -342,7 +343,7 @@ async function runSchemaLoad(key: string, metadataItemKey: string | null, load: 
 // Loads the methods an item can call. An automatic load, such as on opening the item or after its address changes,
 // reuses a schema already loaded or loading and never asks a prompt. The user's Reload always loads again
 export async function loadGrpcSchemaForItem(store: Store<State>, item: CollectionItem, { automatic = false, force = false } = {}) {
-    if(!isGrpcAvailable()) {
+    if (!isGrpcAvailable()) {
         return
     }
 
@@ -352,17 +353,17 @@ export async function loadGrpcSchemaForItem(store: Store<State>, item: Collectio
     const isLatestRequest = () => itemSchemaRequests.get(itemKey) === requestNumber
 
     const { environment, parentHeaders, parentAuthentication } = await store.dispatch('getEnvironmentForRequest', { collectionItem: item })
-    if(!isLatestRequest()) {
+    if (!isLatestRequest()) {
         return
     }
 
     const protoFiles = getGrpcProtoFiles(item)
     const reuses = (key: string) => !force && key in grpcSchemas && (grpcSchemas[key].loading || grpcSchemas[key].schema !== null || (automatic && grpcSchemas[key].error !== null && (schemaFailedItemKeys.get(key) ?? itemKey) === itemKey))
 
-    if(protoFiles) {
+    if (protoFiles) {
         const key = getGrpcSchemaKey(null, protoFiles)!
         grpcItemSchemaKeys[itemKey] = key
-        if(reuses(key)) {
+        if (reuses(key)) {
             return waitForRunningSchemaLoad(key)
         }
         const target = await previewGrpcTarget(item, environment)
@@ -377,14 +378,14 @@ export async function loadGrpcSchemaForItem(store: Store<State>, item: Collectio
 
     const url = item.url ?? ''
 
-    if(automatic && await asksPrompt(item, environment, parentHeaders, parentAuthentication, [url])) {
+    if (automatic && await asksPrompt(item, environment, parentHeaders, parentAuthentication, [url])) {
         // the address can be known without asking, the methods wait for the user
-        if(!PROMPT_TAG_REGEX.test(await substituteEnvironmentVariables(environment, url, { tagTrigger: false, noError: true, resolvePromptTags: false, workspaceId: item.workspaceId }))) {
+        if (!PROMPT_TAG_REGEX.test(await substituteEnvironmentVariables(environment, url, { tagTrigger: false, noError: true, resolvePromptTags: false, workspaceId: item.workspaceId }))) {
             const target = await previewGrpcTarget(item, environment)
-            if(isLatestRequest()) {
+            if (isLatestRequest()) {
                 grpcItemSchemaKeys[itemKey] = isGrpcTarget(target) ? getGrpcSchemaKey(target, null) : null
             }
-        } else if(isLatestRequest()) {
+        } else if (isLatestRequest()) {
             grpcItemSchemaKeys[itemKey] = null
         }
         return
@@ -402,27 +403,27 @@ export async function loadGrpcSchemaForItem(store: Store<State>, item: Collectio
 
     try {
         target = parseGrpcTarget(await send.resolve(environment, url, 'unsaved'))
-        if(!isLatestRequest()) {
+        if (!isLatestRequest()) {
             return
         }
-        if(!isGrpcTarget(target)) {
+        if (!isGrpcTarget(target)) {
             grpcItemSchemaKeys[itemKey] = null
             return
         }
         key = getGrpcSchemaKey(target, null)!
         grpcItemSchemaKeys[itemKey] = key
-        if(reuses(key)) {
+        if (reuses(key)) {
             return waitForRunningSchemaLoad(key)
         }
         metadata = await resolveMetadata(store, item, environment, parentHeaders, parentAuthentication, send)
-        if(!ownsLoad()) {
+        if (!ownsLoad()) {
             return
         }
-    } catch(error) {
+    } catch (error) {
         // such as a cancelled prompt, shown where the methods would be
-        if(ownsLoad()) {
+        if (ownsLoad()) {
             const key = grpcItemSchemaKeys[itemKey]
-            if(key) {
+            if (key) {
                 grpcSchemas[key] ??= { loading: false, schema: null, loadedAt: null, error: null, errorCode: null, failedAt: null }
                 Object.assign(grpcSchemas[key], { error: describeError(error), errorCode: null, failedAt: Date.now() })
                 schemaFailedItemKeys.set(key, itemKey)
@@ -480,7 +481,7 @@ function redraw(call: GrpcLiveCall, controller: GrpcCallState) {
 }
 
 function showEvents(call: GrpcLiveCall, controller: GrpcCallState) {
-    if(controller.revisionTimer === undefined) {
+    if (controller.revisionTimer === undefined) {
         controller.revisionTimer = setTimeout(() => {
             controller.revisionTimer = undefined
             redraw(call, controller)
@@ -509,13 +510,13 @@ function toCallResult(liveCall: GrpcLiveCall): GrpcCallResult {
         timeTaken: (call.endedAt ?? Date.now()) - (call.startedAt ?? call.createdAt),
         ended: call.ended ?? 'failed',
     }
-    if(call.kind !== null) {
+    if (call.kind !== null) {
         result.kind = call.kind
     }
-    if(call.sentMetadata !== undefined) {
+    if (call.sentMetadata !== undefined) {
         result.sentMetadata = call.sentMetadata
     }
-    if(call.error !== null) {
+    if (call.error !== null) {
         result.error = call.error
     }
     return result
@@ -528,7 +529,7 @@ const GRPC_ERROR_NOT_SAVED = 'The call failed. Its error is not saved, as it may
 // errorWithoutValues and detailsWithoutValues are the copies of the error and of status details Restfox wrote, see
 // GrpcCallEvent. Status details without one are the server's
 async function finishCall(store: Store<State>, call: GrpcLiveCall, controller: GrpcCallState, outcome: { ended: GrpcCallResult['ended'], status?: GrpcStatus | null, detailsWithoutValues?: string, error?: string, errorWithoutValues?: string }) {
-    if(call.phase === 'ended') {
+    if (call.phase === 'ended') {
         return
     }
 
@@ -536,7 +537,7 @@ async function finishCall(store: Store<State>, call: GrpcLiveCall, controller: G
     controller.stopAbortController.abort()
     const itemId = controller.itemId
     const itemKey = getGrpcItemKey({ workspaceId: controller.workspaceId, _id: itemId })
-    if(controllers.get(itemKey) === controller) {
+    if (controllers.get(itemKey) === controller) {
         controllers.delete(itemKey)
     }
 
@@ -553,7 +554,7 @@ async function finishCall(store: Store<State>, call: GrpcLiveCall, controller: G
     call.endError = null
     redraw(call, controller)
 
-    if(controller.replaced) {
+    if (controller.replaced) {
         controller.onFinished()
         return
     }
@@ -583,7 +584,7 @@ async function finishCall(store: Store<State>, call: GrpcLiveCall, controller: G
 
     // shown at once, the save follows. The responses shown are the open workspace's, where, after a switch, another
     // file workspace's item can have the same id
-    if(store.state.activeWorkspace?._id === controller.workspaceId) {
+    if (store.state.activeWorkspace?._id === controller.workspaceId) {
         store.state.requestResponses[itemId] = entry
         store.state.requestResponseStatus[itemId] = 'loaded'
     }
@@ -594,7 +595,7 @@ async function finishCall(store: Store<State>, call: GrpcLiveCall, controller: G
             collectionId: itemId,
             response: entrySaved,
         })
-    } catch(error) {
+    } catch (error) {
         // such as for an item its file workspace no longer has. The call stays on screen
         console.error(`The gRPC call could not be saved to history: ${describeError(error)}`)
     } finally {
@@ -604,23 +605,23 @@ async function finishCall(store: Store<State>, call: GrpcLiveCall, controller: G
 
 // whether a sent message took a masked prompt value, by its number
 function isSentMessageOmitted(controller: GrpcCallState, index: number | undefined) {
-    if(index === undefined || controller.indexUncertain) {
+    if (index === undefined || controller.indexUncertain) {
         return controller.omittedByIndex.some(Boolean)
     }
     return controller.omittedByIndex[index] ?? false
 }
 
 function handleEvent(store: Store<State>, call: GrpcLiveCall, controller: GrpcCallState, event: GrpcCallEvent) {
-    if(controller.replaced || call.phase === 'ended') {
+    if (controller.replaced || call.phase === 'ended') {
         return
     }
 
     // connected until the engine has a connection, which it reports before anything else of the server
-    if(call.phase === 'connecting' && event.type !== 'sendError') {
+    if (call.phase === 'connecting' && event.type !== 'sendError') {
         call.phase = 'open'
     }
 
-    switch(event.type) {
+    switch (event.type) {
         case 'connected':
             break
         case 'headers':
@@ -635,7 +636,7 @@ function handleEvent(store: Store<State>, call: GrpcLiveCall, controller: GrpcCa
             break
         }
         case 'sendError':
-            if(event.index === undefined) {
+            if (event.index === undefined) {
                 controller.indexUncertain = true
             }
             call.sendError = controller.send?.hideMaskedValues(event.message) ?? event.message
@@ -652,14 +653,14 @@ function handleEvent(store: Store<State>, call: GrpcLiveCall, controller: GrpcCa
             break
         case 'status': {
             const status: GrpcStatus = { code: event.code, name: event.name, details: event.details }
-            if(event.errorDetails !== undefined) {
+            if (event.errorDetails !== undefined) {
                 status.errorDetails = event.errorDetails
             }
             call.trailers = event.trailers
             let ended: GrpcCallResult['ended'] = 'completed'
-            if(controller.cancelRequested && event.code === 1) {
+            if (controller.cancelRequested && event.code === 1) {
                 ended = 'cancelled'
-            } else if(event.code === 4 && controller.deadlineMs > 0 && event.time >= controller.deadlineMs - DEADLINE_MARGIN_MS) {
+            } else if (event.code === 4 && controller.deadlineMs > 0 && event.time >= controller.deadlineMs - DEADLINE_MARGIN_MS) {
                 ended = 'timedOut'
             }
             finishCall(store, call, controller, { ended, status, detailsWithoutValues: event.detailsWithoutValues })
@@ -674,7 +675,7 @@ function handleEvent(store: Store<State>, call: GrpcLiveCall, controller: GrpcCa
 // stops the item's running call without saving it, for when nothing could reach it anymore
 function dropGrpcCall(itemKey: string) {
     const controller = controllers.get(itemKey)
-    if(controller) {
+    if (controller) {
         controller.replaced = true
         controller.cancelRequested = true
         controller.stopAbortController.abort()
@@ -687,8 +688,15 @@ function dropGrpcCall(itemKey: string) {
 
 // Sends the item's call: Send for unary and server streaming calls, Start for client and bidi streams. A call still
 // running on the item stops first and is not saved, since nothing could reach it once this one shows
+export function useGrpcCallEnvironment(item: CollectionItem, environment: any) {
+    const controller = controllers.get(getGrpcItemKey(item))
+    if (controller) {
+        controller.environment = environment
+    }
+}
+
 export async function startGrpcCallForItem(store: Store<State>, item: CollectionItem, { unaryOnly = false, waitForEnd = false } = {}) {
-    if(unaryOnly && (!item.grpc?.service || !item.grpc?.method)) {
+    if (unaryOnly && (!item.grpc?.service || !item.grpc?.method)) {
         throw new Error(GRPC_RESPONSE_TAG_UNARY_MESSAGE, { cause: 'display-error' })
     }
     const itemKey = getGrpcItemKey(item)
@@ -732,15 +740,27 @@ export async function startGrpcCallForItem(store: Store<State>, item: Collection
     const fail = (error?: string, errorWithoutValues?: string) => finishCall(store, liveCall, controller, { ended: controller.cancelRequested ? 'cancelled' : 'failed', error, errorWithoutValues })
     const stopped = () => controller.replaced || controller.cancelRequested || liveCall.phase === 'ended'
 
-    if(!isGrpcAvailable()) {
+    if (!isGrpcAvailable()) {
         return fail(GRPC_UNAVAILABLE_MESSAGE)
     }
 
-    if(!liveCall.service || !liveCall.method) {
+    if (!liveCall.service || !liveCall.method) {
         return fail('Choose a method to call')
     }
 
     try {
+        if (store.state.activeWorkspace && mayUseLockedSecret(store.state.activeWorkspace, store.state.collection ?? [], item)) {
+            const secretsUnlocked = await unlockSecretsForSend(store.state.activeWorkspace, store.state.collection ?? [], item, store.getters?.enabledPlugins ?? [], [], () => {
+                store.dispatch('reloadTabEnvironmentResolved')
+            })
+            if (!secretsUnlocked) {
+                dropGrpcCall(itemKey)
+                delete grpcCalls[itemKey]
+                controllers.delete(itemKey)
+                onFinished()
+                return
+            }
+        }
         const { environment, parentHeaders, parentAuthentication } = await store.dispatch('getEnvironmentForRequest', { collectionItem: item })
         const send = new SendResolver(item.workspaceId, true, controller.stopAbortController.signal)
         controller.send = send
@@ -750,7 +770,7 @@ export async function startGrpcCallForItem(store: Store<State>, item: Collection
         const { textResolved: urlResolved, textResolvedMasked: urlMasked } = await send.resolveWithMasked(environment, item.url ?? '')
         liveCall.url = urlMasked
         const target = parseGrpcTarget(urlResolved)
-        if(!isGrpcTarget(target)) {
+        if (!isGrpcTarget(target)) {
             // the address as saved gives the error's copy, with a masked prompt value in it as ******
             const targetMasked = parseGrpcTarget(urlMasked)
             return fail(target.error, isGrpcTarget(targetMasked) ? undefined : targetMasked.error)
@@ -758,7 +778,7 @@ export async function startGrpcCallForItem(store: Store<State>, item: Collection
 
         const metadataMasked: GrpcMetadata = []
         const metadata = await resolveMetadata(store, item, environment, parentHeaders, parentAuthentication, send, metadataMasked)
-        if(stopped()) {
+        if (stopped()) {
             return fail()
         }
 
@@ -768,29 +788,29 @@ export async function startGrpcCallForItem(store: Store<State>, item: Collection
 
         let schema = grpcSchemas[key]?.schema ?? null
         let schemaMethod = findGrpcMethod(schema, liveCall.service, liveCall.method)
-        if(!schemaMethod) {
+        if (!schemaMethod) {
             // not loaded yet, or the server changed since: loaded with what this send resolved, so nothing asks twice
             const loaded = await runSchemaLoad(key, protoFiles ? null : itemKey, signal => loadGrpcSchema({ target, metadata, protoFiles, disableSSLVerification: isSSLVerificationDisabled(store), timeoutMs: getSavedRequestTimeout() }, signal), controller.stopAbortController.signal)
-            if(stopped()) {
+            if (stopped()) {
                 return fail()
             }
             // a server that could not be reached ends the call as a call that cannot connect does, with its status
-            if(loaded.connectionStatus !== null) {
+            if (loaded.connectionStatus !== null) {
                 return finishCall(store, liveCall, controller, { ended: loaded.connectionStatus.code === 4 ? 'timedOut' : 'completed', status: loaded.connectionStatus, detailsWithoutValues: loaded.errorWithoutValues ?? GRPC_ERROR_NOT_SAVED })
             }
-            if(loaded.error !== null) {
+            if (loaded.error !== null) {
                 return fail(loaded.error, loaded.errorWithoutValues)
             }
             schema = loaded.schema
             schemaMethod = findGrpcMethod(schema, liveCall.service, liveCall.method)
         }
 
-        if(!schemaMethod) {
+        if (!schemaMethod) {
             return fail(`${protoFiles ? 'The .proto files define' : 'The server offers'} no method ${liveCall.service}/${liveCall.method}`)
         }
 
         const kind = getGrpcCallKind(schemaMethod)
-        if(unaryOnly && kind !== 'unary') {
+        if (unaryOnly && kind !== 'unary') {
             dropGrpcCall(itemKey)
             delete grpcCalls[itemKey]
             throw new Error(GRPC_RESPONSE_TAG_UNARY_MESSAGE, { cause: 'display-error' })
@@ -798,13 +818,13 @@ export async function startGrpcCallForItem(store: Store<State>, item: Collection
         liveCall.kind = kind
 
         const messages: string[] = []
-        if(!isClientStreaming(kind)) {
+        if (!isClientStreaming(kind)) {
             const { textResolved, maskedPromptUsed } = await send.resolveWithMasked(environment, item.body?.text ?? '{}')
             messages.push(textResolved.trim() === '' ? '{}' : textResolved)
             controller.omittedByIndex.push(maskedPromptUsed)
         }
 
-        if(stopped()) {
+        if (stopped()) {
             return fail()
         }
 
@@ -816,9 +836,9 @@ export async function startGrpcCallForItem(store: Store<State>, item: Collection
         controller.sentMetadataSaved = []
 
         liveCall.liveShown = isClientStreaming(kind)
-        if(kind === 'serverStream') {
+        if (kind === 'serverStream') {
             controller.timers.push(setTimeout(() => {
-                if(liveCall.phase !== 'ended') {
+                if (liveCall.phase !== 'ended') {
                     liveCall.liveShown = true
                 }
             }, LIVE_SHOWN_AFTER_MS))
@@ -834,8 +854,8 @@ export async function startGrpcCallForItem(store: Store<State>, item: Collection
             deadlineMs: controller.deadlineMs,
             messages,
         }, (event: GrpcCallEvent) => {
-            if(event.type === 'sentMetadata') {
-                if(!stopped()) {
+            if (event.type === 'sentMetadata') {
+                if (!stopped()) {
                     liveCall.sentMetadata = event.indexes.map(index => metadata[index])
                     controller.sentMetadataSaved = event.indexes.map(index => metadataMasked[index])
                 }
@@ -847,14 +867,14 @@ export async function startGrpcCallForItem(store: Store<State>, item: Collection
         controller.transport = transport
 
         // stopped while the call was being set up
-        if(controller.cancelRequested || controller.replaced) {
+        if (controller.cancelRequested || controller.replaced) {
             transport.cancel()
         }
-        if(waitForEnd) {
+        if (waitForEnd) {
             await finished
         }
-    } catch(error: any) {
-        if(unaryOnly && error?.message === GRPC_RESPONSE_TAG_UNARY_MESSAGE) {
+    } catch (error: any) {
+        if (unaryOnly && error?.message === GRPC_RESPONSE_TAG_UNARY_MESSAGE) {
             throw error
         }
         return fail(describeError(error), error?.messageWithoutValues)
@@ -877,25 +897,25 @@ function isStreamOpenForQueuedSteps(call: GrpcLiveCall, controller: GrpcCallStat
 export function sendGrpcCallMessage(item: CollectionItem, text: string) {
     const call = grpcCalls[getGrpcItemKey(item)]
     const controller = controllers.get(getGrpcItemKey(item))
-    if(!controller || !controller.transport || !controller.send || !isGrpcCallAcceptingMessages(call)) {
+    if (!controller || !controller.transport || !controller.send || !isGrpcCallAcceptingMessages(call)) {
         return Promise.resolve()
     }
     const { transport, send } = controller
 
-    return queueMessageStep(controller, async() => {
+    return queueMessageStep(controller, async () => {
         // a message that waited behind a slow one asks no prompt and sends no response tag's request for a call that is over
-        if(!isStreamOpenForQueuedSteps(call, controller)) {
+        if (!isStreamOpenForQueuedSteps(call, controller)) {
             return
         }
         try {
             const { textResolved, maskedPromptUsed } = await send.resolveWithMasked(controller.environment, text)
-            if(!isStreamOpenForQueuedSteps(call, controller)) {
+            if (!isStreamOpenForQueuedSteps(call, controller)) {
                 return
             }
             controller.omittedByIndex.push(maskedPromptUsed)
             transport.send(textResolved.trim() === '' ? '{}' : textResolved)
-        } catch(error) {
-            if(isStreamOpenForQueuedSteps(call, controller)) {
+        } catch (error) {
+            if (isStreamOpenForQueuedSteps(call, controller)) {
                 call.sendError = send.hideMaskedValues(describeError(error))
             }
         }
@@ -907,7 +927,7 @@ export function sendGrpcCallMessage(item: CollectionItem, text: string) {
 export function endGrpcCallStream(item: CollectionItem) {
     const call = grpcCalls[getGrpcItemKey(item)]
     const controller = controllers.get(getGrpcItemKey(item))
-    if(!controller || !controller.transport || !isGrpcCallAcceptingMessages(call)) {
+    if (!controller || !controller.transport || !isGrpcCallAcceptingMessages(call)) {
         return Promise.resolve()
     }
     const { transport } = controller
@@ -915,7 +935,7 @@ export function endGrpcCallStream(item: CollectionItem) {
     call.endError = null
 
     return queueMessageStep(controller, () => {
-        if(isStreamOpenForQueuedSteps(call, controller)) {
+        if (isStreamOpenForQueuedSteps(call, controller)) {
             transport.end()
         }
     })
@@ -925,12 +945,12 @@ export function endGrpcCallStream(item: CollectionItem) {
 export function cancelGrpcCallForItem(store: Store<State>, item: CollectionItem) {
     const call = grpcCalls[getGrpcItemKey(item)]
     const controller = controllers.get(getGrpcItemKey(item))
-    if(!controller || !isGrpcCallRunning(call)) {
+    if (!controller || !isGrpcCallRunning(call)) {
         return
     }
     controller.cancelRequested = true
     controller.stopAbortController.abort()
-    if(controller.transport) {
+    if (controller.transport) {
         controller.transport.cancel()
     } else {
         finishCall(store, call, controller, { ended: 'cancelled' })
@@ -938,7 +958,7 @@ export function cancelGrpcCallForItem(store: Store<State>, item: CollectionItem)
 }
 
 function forgetGrpcCallsForItemKeys(itemKeys: string[]) {
-    for(const itemKey of itemKeys) {
+    for (const itemKey of itemKeys) {
         dropGrpcCall(itemKey)
         itemSchemaRequests.delete(itemKey)
         delete grpcCalls[itemKey]
@@ -969,16 +989,16 @@ export function moveGrpcCallsToNewItemIds(workspaceId: string, oldItemIds: strin
         itemSchemaRequests.delete(oldKey)
         return entry
     })
-    for(const { newId, controller, call, schemaKey } of moved) {
+    for (const { newId, controller, call, schemaKey } of moved) {
         const newKey = keyOf(newId)
-        if(controller) {
+        if (controller) {
             controller.itemId = newId
             controllers.set(newKey, controller)
         }
-        if(call) {
+        if (call) {
             grpcCalls[newKey] = call
         }
-        if(schemaKey !== undefined) {
+        if (schemaKey !== undefined) {
             grpcItemSchemaKeys[newKey] = schemaKey
         }
     }
@@ -996,8 +1016,8 @@ export function forgetGrpcCallsForWorkspace(workspaceId: string) {
 // next load tries again. Methods loaded before are kept
 export function forgetFailedGrpcSchemaLoads() {
     connectionSettingsChanges++
-    for(const [key, entry] of Object.entries(grpcSchemas)) {
-        if(!entry.loading && entry.error !== null) {
+    for (const [key, entry] of Object.entries(grpcSchemas)) {
+        if (!entry.loading && entry.error !== null) {
             Object.assign(entry, { error: null, errorCode: null, failedAt: null })
             schemaFailedItemKeys.delete(key)
         }
@@ -1011,13 +1031,13 @@ export function resetGrpcCalls() {
     schemaLoads.clear()
     schemaFailedItemKeys.clear()
     itemSchemaRequests.clear()
-    for(const key of Object.keys(grpcCalls)) {
+    for (const key of Object.keys(grpcCalls)) {
         delete grpcCalls[key]
     }
-    for(const key of Object.keys(grpcSchemas)) {
+    for (const key of Object.keys(grpcSchemas)) {
         delete grpcSchemas[key]
     }
-    for(const key of Object.keys(grpcItemSchemaKeys)) {
+    for (const key of Object.keys(grpcItemSchemaKeys)) {
         delete grpcItemSchemaKeys[key]
     }
 }

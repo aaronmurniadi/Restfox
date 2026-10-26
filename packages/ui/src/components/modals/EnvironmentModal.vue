@@ -150,7 +150,79 @@
                             Secrets
                         </button>
                     </div>
-                    <div class="env-kv-editor" @keydown.enter.prevent>
+                    <div
+                        v-if="editorMode === 'secrets'"
+                        class="env-secrets-lock"
+                    >
+                        <div v-if="secretsLocked" class="env-secrets-locked">
+                            <div>
+                                Secret values are encrypted. Enter the password
+                                to use them.
+                            </div>
+                            <input
+                                type="password"
+                                class="env-kv-secret"
+                                v-model="secretsPassword"
+                                autocomplete="current-password"
+                                spellcheck="false"
+                                placeholder="Password"
+                                @keydown.enter.prevent="
+                                    unlockSecretsFromPassword
+                                "
+                            />
+                            <button
+                                type="button"
+                                class="button"
+                                :disabled="secretsBusy"
+                                @click="unlockSecretsFromPassword"
+                            >
+                                Unlock
+                            </button>
+                        </div>
+                        <div v-else class="env-secrets-actions">
+                            <button
+                                v-if="!secretsEncrypted"
+                                type="button"
+                                class="button"
+                                :disabled="secretsBusy"
+                                @click="enableSecretEncryption"
+                            >
+                                Encrypt with password
+                            </button>
+                            <template v-else>
+                                <span class="env-secrets-state">Encrypted</span>
+                                <button
+                                    type="button"
+                                    class="button"
+                                    :disabled="secretsBusy"
+                                    @click="lockSecrets"
+                                >
+                                    Lock
+                                </button>
+                                <button
+                                    type="button"
+                                    class="button"
+                                    :disabled="secretsBusy"
+                                    @click="changeSecretPassword"
+                                >
+                                    Change password
+                                </button>
+                                <button
+                                    type="button"
+                                    class="button"
+                                    :disabled="secretsBusy"
+                                    @click="removeSecretEncryption"
+                                >
+                                    Remove encryption
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+                    <div
+                        v-if="!(editorMode === 'secrets' && secretsLocked)"
+                        class="env-kv-editor"
+                        @keydown.enter.prevent
+                    >
                         <table class="env-kv-table">
                             <tr>
                                 <th>Key</th>
@@ -259,8 +331,9 @@
                     >
                         Secret values are referenced like other variables and
                         are sent with the request. They are masked in the URL
-                        preview, history, and variable tooltips, stored apart
-                        from the environment, and left out of exports.
+                        preview, history, and variable tooltips. Encrypt with
+                        password stores them as encrypted JSON, apart from the
+                        environment and left out of exports.
                     </div>
                     <div
                         v-else-if="editingGlobals"
@@ -355,6 +428,18 @@ import {
     environmentFromRows,
     rowsFromEnvironment,
 } from "@/utils/environment-rows";
+import {
+    copySecretValues,
+    createSecretSession,
+    isEncryptedSecrets,
+    lockSecretSession,
+    mergedSecretValues,
+    openEncryptedSecrets,
+    revealedSecretValues,
+    sealSecretValues,
+    secretsUnlocked,
+    unlockSecretSession,
+} from "@/utils/secret-encryption";
 
 export default {
     props: {
@@ -382,6 +467,11 @@ export default {
             },
             envVariables: {},
             editorMode: "variables",
+            secretsPassword: "",
+            secretsLocked: false,
+            secretsEncrypted: false,
+            secretsBusy: false,
+            secretSaveTokens: {},
             editingGlobals: false,
             editTagModalShow: false,
             editTagParsedFunc: null,
@@ -589,7 +679,9 @@ export default {
                     secretsObject !== undefined &&
                     Object.keys(secretsObject).length > 0
                 ) {
-                    environment.secrets = secretsObject;
+                    environment.secrets = secretsUnlocked()
+                        ? await sealSecretValues(secretsObject)
+                        : secretsObject;
                 }
 
                 if (this.collectionItem) {
@@ -629,10 +721,17 @@ export default {
                     secretsObject !== undefined &&
                     Object.keys(secretsObject).length > 0
                 ) {
-                    existingEnvironment.secrets = {
-                        ...(existingEnvironment.secrets ?? {}),
-                        ...secretsObject,
-                    };
+                    const merged = await mergedSecretValues(
+                        existingEnvironment.secrets,
+                        secretsObject,
+                    );
+                    if (merged === "locked") {
+                        this.$toast.error(
+                            "Unlock secrets before importing into them",
+                        );
+                        return;
+                    }
+                    existingEnvironment.secrets = merged;
                 }
                 environment = existingEnvironment;
             }
@@ -669,10 +768,17 @@ export default {
 
             this.saveCurrentEnvironment();
 
-            const environmentSource =
+            let environmentSource =
                 this.editorMode === "secrets"
                     ? (environment.secrets ?? {})
                     : environment.environment;
+            if (this.editorMode === "secrets") {
+                const plain = this.syncSecretEditor(environmentSource);
+                if (plain === null) {
+                    return;
+                }
+                environmentSource = plain;
+            }
             const environmentString = jsonStringify(environmentSource);
 
             let manuallyTriggerSave = false;
@@ -708,10 +814,17 @@ export default {
             }
 
             this.editingGlobals = true;
-            const source =
+            let source =
                 this.editorMode === "secrets"
                     ? (this.workspace.globalSecrets ?? {})
                     : (this.workspace.globals ?? {});
+            if (this.editorMode === "secrets") {
+                const plain = this.syncSecretEditor(source);
+                if (plain === null) {
+                    return;
+                }
+                source = plain;
+            }
             this.setEnvironmentText(jsonStringify(source));
         },
         setEditorMode(mode) {
@@ -748,6 +861,14 @@ export default {
                         : (current?.environment ??
                           this.environmentToSave ??
                           {});
+            }
+
+            if (this.editorMode === "secrets") {
+                const plain = this.syncSecretEditor(source);
+                if (plain === null) {
+                    return;
+                }
+                source = plain;
             }
 
             this.setEnvironmentText(jsonStringify(source));
@@ -813,13 +934,341 @@ export default {
             this.ensureBlankRow();
             this.environment = jsonStringify(environmentFromRows(this.rows));
         },
+        activeWorkspaceForSecrets() {
+            return this.workspace ?? this.$store.state.activeWorkspace;
+        },
+        anyBagEncrypted() {
+            return this.secretBagRefs().some((ref) =>
+                isEncryptedSecrets(ref.get()),
+            );
+        },
+        secretBagRefs() {
+            const refs = [];
+            const workspace = this.activeWorkspaceForSecrets();
+            if (workspace) {
+                refs.push({
+                    role: "globals",
+                    get: () => workspace.globalSecrets,
+                    set: (value) => {
+                        workspace.globalSecrets = value;
+                    },
+                });
+                for (const environment of workspace.environments ?? []) {
+                    refs.push({
+                        role: "environment",
+                        get: () => environment.secrets,
+                        set: (value) => {
+                            environment.secrets = value;
+                        },
+                    });
+                }
+            }
+
+            for (const item of this.$store.state.collection ?? []) {
+                if (item._type !== "request_group" || !item.environments) {
+                    continue;
+                }
+                for (const environment of item.environments) {
+                    refs.push({
+                        role: "environment",
+                        get: () => environment.secrets,
+                        set: (value) => {
+                            environment.secrets = value;
+                        },
+                    });
+                }
+            }
+
+            return refs;
+        },
+        commitSecretBags() {
+            const workspace = this.activeWorkspaceForSecrets();
+            if (workspace?.globalSecrets) {
+                this.$store.commit("updateWorkspaceGlobalSecrets", {
+                    workspaceId: workspace._id,
+                    globalSecrets: workspace.globalSecrets,
+                });
+            }
+            if (workspace?.environments) {
+                this.$store.commit("updateWorkspaceEnvironments", {
+                    workspaceId: workspace._id,
+                    environments: workspace.environments,
+                });
+            }
+
+            for (const item of this.$store.state.collection ?? []) {
+                if (item._type !== "request_group" || !item.environments) {
+                    continue;
+                }
+                if (
+                    !item.environments.some(
+                        (environment) => environment.secrets,
+                    )
+                ) {
+                    continue;
+                }
+                this.$store.commit("updateCollectionItemEnvironments", {
+                    collectionId: item._id,
+                    environments: item.environments,
+                });
+            }
+
+            this.$store.dispatch("reloadTabEnvironmentResolved");
+        },
+        syncSecretEditor(stored) {
+            this.secretsEncrypted = secretsUnlocked() || this.anyBagEncrypted();
+            if (!secretsUnlocked() && this.secretsEncrypted) {
+                this.showLockedSecrets();
+                return null;
+            }
+
+            this.secretsLocked = false;
+            if (isEncryptedSecrets(stored)) {
+                return revealedSecretValues(stored) ?? {};
+            }
+
+            return stored ?? {};
+        },
+        showLockedSecrets() {
+            this.secretsLocked = true;
+            this.secretsEncrypted = true;
+            this.loadingRows = true;
+            this.rows = [];
+            this.environment = "{}";
+            nextTick(() => {
+                this.loadingRows = false;
+            });
+        },
+        async askNewPassword() {
+            const password = await window.createPrompt(
+                "Encrypt secrets",
+                "",
+                [],
+                { label: "Password", mask: true },
+            );
+            if (password === null) {
+                return null;
+            }
+            if (password.length < 8) {
+                this.$toast.error("Use at least 8 characters");
+                return null;
+            }
+
+            const confirmPassword = await window.createPrompt(
+                "Encrypt secrets",
+                "",
+                [],
+                { label: "Confirm password", mask: true },
+            );
+            if (confirmPassword === null) {
+                return null;
+            }
+            if (confirmPassword !== password) {
+                this.$toast.error("Passwords do not match");
+                return null;
+            }
+
+            return password;
+        },
+        async enableSecretEncryption() {
+            const password = await this.askNewPassword();
+            if (!password) {
+                return;
+            }
+
+            this.secretsBusy = true;
+            try {
+                await createSecretSession(password);
+                for (const ref of this.secretBagRefs()) {
+                    const existing = ref.get();
+                    const plain = isEncryptedSecrets(existing)
+                        ? revealedSecretValues(existing)
+                        : existing &&
+                            typeof existing === "object" &&
+                            !Array.isArray(existing)
+                          ? existing
+                          : {};
+                    if (!plain) {
+                        continue;
+                    }
+                    if (
+                        ref.role !== "globals" &&
+                        Object.keys(plain).length === 0
+                    ) {
+                        continue;
+                    }
+                    ref.set(await sealSecretValues(plain));
+                }
+                this.commitSecretBags();
+                this.secretsEncrypted = true;
+                this.secretsLocked = false;
+                this.loadEditorText();
+                this.$toast.success("Secrets encrypted");
+            } finally {
+                this.secretsBusy = false;
+            }
+        },
+        async unlockSecretsFromPassword() {
+            const password = this.secretsPassword;
+            if (!password) {
+                return;
+            }
+
+            const sample = this.secretBagRefs()
+                .map((ref) => ref.get())
+                .find((secrets) => isEncryptedSecrets(secrets));
+            if (!sample) {
+                return;
+            }
+
+            this.secretsBusy = true;
+            try {
+                const unlocked = await unlockSecretSession(password, sample);
+                this.secretsPassword = "";
+                if (!unlocked) {
+                    this.$toast.error("Wrong password");
+                    return;
+                }
+
+                let failed = false;
+                for (const ref of this.secretBagRefs()) {
+                    const existing = ref.get();
+                    if (!isEncryptedSecrets(existing)) {
+                        continue;
+                    }
+                    if (!(await openEncryptedSecrets(existing))) {
+                        failed = true;
+                    }
+                }
+                if (failed) {
+                    this.$toast.error("Some secrets could not be decrypted");
+                }
+                this.secretsLocked = false;
+                this.secretsEncrypted = true;
+                this.loadEditorText();
+                this.$store.dispatch("reloadTabEnvironmentResolved");
+            } finally {
+                this.secretsBusy = false;
+            }
+        },
+        lockSecrets() {
+            lockSecretSession();
+            this.secretsPassword = "";
+            this.showLockedSecrets();
+            this.$store.dispatch("reloadTabEnvironmentResolved");
+        },
+        async changeSecretPassword() {
+            const password = await this.askNewPassword();
+            if (!password) {
+                return;
+            }
+
+            this.secretsBusy = true;
+            try {
+                const snapshots = [];
+                for (const ref of this.secretBagRefs()) {
+                    const existing = ref.get();
+                    if (isEncryptedSecrets(existing)) {
+                        const plain = revealedSecretValues(existing);
+                        if (!plain) {
+                            this.$toast.error(
+                                "Unlock secrets before changing the password",
+                            );
+                            return;
+                        }
+                        snapshots.push({
+                            ref,
+                            plain: copySecretValues(plain),
+                        });
+                        continue;
+                    }
+                    if (
+                        !existing ||
+                        typeof existing !== "object" ||
+                        Array.isArray(existing) ||
+                        (ref.role !== "globals" &&
+                            Object.keys(existing).length === 0)
+                    ) {
+                        continue;
+                    }
+                    snapshots.push({
+                        ref,
+                        plain: copySecretValues(existing),
+                    });
+                }
+
+                await createSecretSession(password);
+                for (const snapshot of snapshots) {
+                    snapshot.ref.set(await sealSecretValues(snapshot.plain));
+                }
+                this.commitSecretBags();
+                this.secretsEncrypted = true;
+                this.secretsLocked = false;
+                this.loadEditorText();
+                this.$toast.success("Password changed");
+            } finally {
+                this.secretsBusy = false;
+            }
+        },
+        async removeSecretEncryption() {
+            if (
+                !(await window.createConfirm(
+                    "Remove encryption? Secret values will be stored without a password.",
+                    "Remove",
+                ))
+            ) {
+                return;
+            }
+
+            const snapshots = [];
+            for (const ref of this.secretBagRefs()) {
+                const existing = ref.get();
+                if (!isEncryptedSecrets(existing)) {
+                    continue;
+                }
+                const plain = revealedSecretValues(existing);
+                if (!plain) {
+                    this.$toast.error(
+                        "Unlock secrets before removing encryption",
+                    );
+                    return;
+                }
+                snapshots.push({ ref, plain: copySecretValues(plain) });
+            }
+
+            lockSecretSession();
+            for (const snapshot of snapshots) {
+                snapshot.ref.set(snapshot.plain);
+            }
+            this.commitSecretBags();
+            this.secretsEncrypted = false;
+            this.secretsLocked = false;
+            this.secretsPassword = "";
+            this.loadEditorText();
+            this.$toast.success("Encryption removed");
+        },
         persistGlobals(value) {
             if (this.editorMode === "secrets") {
-                this.workspace.globalSecrets = value;
-                this.$store.commit("updateWorkspaceGlobalSecrets", {
-                    workspaceId: this.workspace._id,
-                    globalSecrets: value,
+                if (this.secretsLocked) {
+                    return;
+                }
+
+                const token = (this.secretSaveTokens.globals ?? 0) + 1;
+                this.secretSaveTokens.globals = token;
+                void sealSecretValues(value).then((stored) => {
+                    if (this.secretSaveTokens.globals !== token) {
+                        return;
+                    }
+
+                    this.workspace.globalSecrets = stored;
+                    this.$store.commit("updateWorkspaceGlobalSecrets", {
+                        workspaceId: this.workspace._id,
+                        globalSecrets: stored,
+                    });
+                    this.$store.dispatch("reloadTabEnvironmentResolved");
+                    this.loadEnvVariables();
                 });
+                return;
             } else {
                 this.workspace.globals = value;
                 this.$store.commit("updateWorkspaceGlobals", {
@@ -832,6 +1281,10 @@ export default {
             this.loadEnvVariables();
         },
         persistSecrets(value) {
+            if (this.secretsLocked) {
+                return;
+            }
+
             if (this.collectionItem && !this.collectionItem.environments) {
                 this.collectionItem.environments = this.environments;
             }
@@ -840,15 +1293,24 @@ export default {
                 this.workspace.environments = this.environments;
             }
 
-            const current = this.environments.find(
-                (environment) => environment.name === this.currentEnvironment,
-            );
-            if (!current) {
-                return;
-            }
+            const environmentName = this.currentEnvironment;
+            const token = (this.secretSaveTokens[environmentName] ?? 0) + 1;
+            this.secretSaveTokens[environmentName] = token;
+            void sealSecretValues(value).then((stored) => {
+                if (this.secretSaveTokens[environmentName] !== token) {
+                    return;
+                }
 
-            current.secrets = value;
-            this.saveEnvironments();
+                const current = this.environments.find(
+                    (environment) => environment.name === environmentName,
+                );
+                if (!current) {
+                    return;
+                }
+
+                current.secrets = stored;
+                this.saveEnvironments();
+            });
         },
         onDragStart(index, event) {
             this.draggedEnvironmentIndex = index;
@@ -1182,10 +1644,17 @@ export default {
                                     );
                                 }
                                 if (Object.keys(secrets).length > 0) {
-                                    workspace.globalSecrets = {
-                                        ...(workspace.globalSecrets ?? {}),
-                                        ...secrets,
-                                    };
+                                    const merged = await mergedSecretValues(
+                                        workspace.globalSecrets,
+                                        secrets,
+                                    );
+                                    if (merged === "locked") {
+                                        this.$toast.error(
+                                            "Unlock secrets before importing into them",
+                                        );
+                                        return;
+                                    }
+                                    workspace.globalSecrets = merged;
                                     this.$store.commit(
                                         "updateWorkspaceGlobalSecrets",
                                         {
@@ -1540,6 +2009,29 @@ export default {
     color: var(--text-color);
     cursor: pointer;
     padding: 0.2rem 0.35rem;
+}
+
+.env-secrets-lock,
+.env-secrets-locked,
+.env-secrets-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.env-secrets-lock {
+    margin-bottom: 0.75rem;
+}
+
+.env-secrets-locked .env-kv-secret {
+    flex: 1;
+    min-width: 12rem;
+    max-width: 20rem;
+}
+
+.env-secrets-state {
+    font-size: 0.75rem;
 }
 
 .env-editor-tabs {

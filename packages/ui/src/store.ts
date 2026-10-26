@@ -57,6 +57,7 @@ import { clearSkipPersistingActiveTabAfterUpdate } from '@/utils/skip-persisting
 import constants from './constants'
 import { emitter } from './event-bus'
 import { buildResolvedEnvironment } from './utils/environment-secrets'
+import { unlockSecretsForSend } from './utils/secret-send'
 import {
     CollectionItem,
     Plugin,
@@ -1357,6 +1358,13 @@ export const store = createStore<State>({
 
             if(context.state.activeWorkspace === null) {
                 throw new Error('activeWorkspace is null')
+            }
+
+            const secretsUnlocked = await unlockSecretsForSend(context.state.activeWorkspace, context.state.collection, activeTab, context.getters.enabledPlugins as Plugin[], [], () => {
+                context.dispatch('reloadTabEnvironmentResolved')
+            })
+            if(!secretsUnlocked) {
+                return
             }
 
             const sendStartedAt = Date.now()

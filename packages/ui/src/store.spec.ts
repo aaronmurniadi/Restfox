@@ -30,7 +30,7 @@ vi.mock('./db', () => ({
     createPlugins: vi.fn(),
 }))
 
-vi.mock('./helpers', async(importOriginal) => {
+vi.mock('./helpers', async (importOriginal) => {
     const original = await importOriginal<typeof import('./helpers')>()
     return { ...original, handleRequest: vi.fn() }
 })
@@ -48,6 +48,7 @@ import type { CollectionItem, Plugin, ResponseHead, ResponseProgress, ResponsePr
 import { store } from './store'
 import { INHERITED_AUTHENTICATION_TYPE, handleRequest } from './helpers'
 import { isSecretPath, secretPathsOf } from './utils/environment-secrets'
+import { createSecretSession, lockSecretSession, sealSecretValues } from './utils/secret-encryption'
 import { type GrpcLiveCall, getGrpcItemKey, grpcCalls, resetGrpcCalls, startGrpcCallForItem } from './utils/grpc-calls'
 
 function scriptPlugin(id: string, code: { pre_request: string, post_request: string }): Plugin {
@@ -75,7 +76,7 @@ describe('saveRequestScript', () => {
         store.state.plugins.workspace = []
     })
 
-    test('updates the primary script and removes stale duplicates', async() => {
+    test('updates the primary script and removes stale duplicates', async () => {
         const primary = scriptPlugin('primary', {
             pre_request: '',
             post_request: '',
@@ -108,7 +109,7 @@ describe('saveRequestScript', () => {
         )
     })
 
-    test('reserves a new script before persistence to prevent duplicate creation', async() => {
+    test('reserves a new script before persistence to prevent duplicate creation', async () => {
         let finishCreate: (() => void) | undefined
         vi.mocked(createPlugin).mockImplementationOnce(() => new Promise<void>(resolve => {
             finishCreate = resolve
@@ -154,35 +155,35 @@ describe('getEnvironmentForRequest', () => {
     const request: CollectionItem = { _id: 'request-id', _type: 'request', name: 'Request', parentId: 'child', workspaceId: 'workspace-id' }
     const rootAuthentication = { type: 'bearer', token: 'root-token' }
 
-    const resolve = async(childAuthentication: CollectionItem['authentication']) => {
+    const resolve = async (childAuthentication: CollectionItem['authentication']) => {
         store.state.activeWorkspace = { _id: 'workspace-id', _type: 'file', name: 'Workspace', dotEnv: {} } as Workspace
         store.state.collection = [folder('root', null, rootAuthentication), folder('child', 'root', childAuthentication), request]
         const { parentAuthentication } = await store.dispatch('getEnvironmentForRequest', { collectionItem: request })
         return parentAuthentication
     }
 
-    test('a folder set to No Auth stops the auth of the folders above it', async() => {
+    test('a folder set to No Auth stops the auth of the folders above it', async () => {
         expect(await resolve({ type: 'none' })).toBeUndefined()
     })
 
-    test('a folder set to Inherit, or without an authentication object, passes the auth of the folder above it through', async() => {
+    test('a folder set to Inherit, or without an authentication object, passes the auth of the folder above it through', async () => {
         expect(await resolve({ type: INHERITED_AUTHENTICATION_TYPE })).toEqual(rootAuthentication)
         expect(await resolve(undefined)).toEqual(rootAuthentication)
     })
 
-    test('a folder whose own auth is unticked passes the auth of the folder above it through, as it always has', async() => {
+    test('a folder whose own auth is unticked passes the auth of the folder above it through, as it always has', async () => {
         expect(await resolve({ type: 'bearer', token: 'child-token', disabled: true })).toEqual(rootAuthentication)
     })
 
-    test('a folder with an auth of its own wins over the folder above it', async() => {
+    test('a folder with an auth of its own wins over the folder above it', async () => {
         expect(await resolve({ type: 'basic', username: 'u', password: 'p' })).toEqual({ type: 'basic', username: 'u', password: 'p' })
     })
 })
 
 describe('getEnvironmentForRequest with a prompt tag', () => {
-    test('a prompt tag in a folder environment is left for send time, so switching tabs never asks', async() => {
-        const createPrompt = vi.fn(async() => 'typed')
-        ;(window as any).createPrompt = createPrompt
+    test('a prompt tag in a folder environment is left for send time, so switching tabs never asks', async () => {
+        const createPrompt = vi.fn(async () => 'typed')
+            ; (window as any).createPrompt = createPrompt
         const tag = `{% prompt(title='Password') %}`
         store.state.activeWorkspace = { _id: 'workspace-id', _type: 'file', name: 'Workspace', dotEnv: {}, environment: { WORKSPACE_PASSWORD: tag } } as unknown as Workspace
         store.state.collection = [
@@ -196,7 +197,7 @@ describe('getEnvironmentForRequest with a prompt tag', () => {
 })
 
 describe('getEnvironmentForRequest with globals and secrets', () => {
-    test('a global is available, the environment overrides it, and a secret wins over a plain value of the same name', async() => {
+    test('a global is available, the environment overrides it, and a secret wins over a plain value of the same name', async () => {
         store.state.activeWorkspace = {
             _id: 'workspace-id',
             _type: 'workspace',
@@ -227,7 +228,7 @@ describe('getEnvironmentForRequest with globals and secrets', () => {
         expect(isSecretPath('host', secretPathsOf(environment))).toBe(false)
     })
 
-    test('a folder value overrides a global secret of the same name', async() => {
+    test('a folder value overrides a global secret of the same name', async () => {
         store.state.activeWorkspace = {
             _id: 'workspace-id',
             _type: 'workspace',
@@ -309,7 +310,7 @@ describe('sendRequest while a response arrives', () => {
         vi.useRealTimers()
     })
 
-    test('an event stream still open at 250 ms shows as receiving, with the chunks that arrived', async() => {
+    test('an event stream still open at 250 ms shows as receiving, with the chunks that arrived', async () => {
         const send = controlledSend()
         const sent = store.dispatch('sendRequest', tab)
         await send.started
@@ -329,7 +330,7 @@ describe('sendRequest while a response arrives', () => {
         await sent
     })
 
-    test('a response that fails to save goes back to loading, as before streaming, not to a receiving view with nothing to show', async() => {
+    test('a response that fails to save goes back to loading, as before streaming, not to a receiving view with nothing to show', async () => {
         vi.mocked(createResponse).mockRejectedValueOnce(new Error('save failed'))
         // the history of an open tab is already loaded
         store.state.responses[tab._id] = []
@@ -347,7 +348,7 @@ describe('sendRequest while a response arrives', () => {
         expect(store.state.requestResponseStatus[tab._id]).toBe('loading')
     })
 
-    test('a JSON lines body still open at 250 ms shows as receiving too', async() => {
+    test('a JSON lines body still open at 250 ms shows as receiving too', async () => {
         const send = controlledSend()
         const sent = store.dispatch('sendRequest', tab)
         await send.started
@@ -361,7 +362,7 @@ describe('sendRequest while a response arrives', () => {
         await sent
     })
 
-    test('an event stream that ends at once, such as an MCP reply, never shows as receiving, also while slow scripts run', async() => {
+    test('an event stream that ends at once, such as an MCP reply, never shows as receiving, also while slow scripts run', async () => {
         const send = controlledSend()
         const sent = store.dispatch('sendRequest', tab)
         await send.started
@@ -378,7 +379,7 @@ describe('sendRequest while a response arrives', () => {
         expect(store.state.requestResponseStatus[tab._id]).toBe('loaded')
     })
 
-    test('a JSON body cut short is shown but not saved, older versions would read it as whole, a stream cut short is saved', async() => {
+    test('a JSON body cut short is shown but not saved, older versions would read it as whole, a stream cut short is saved', async () => {
         // the history of an open tab is already loaded
         store.state.responses[tab._id] = []
         const json = controlledSend()
@@ -402,7 +403,7 @@ describe('sendRequest while a response arrives', () => {
         expect(store.state.responses[tab._id].map((response: any) => response._id)).toEqual(['events-partial'])
     })
 
-    test('a JSON response that ends within 100 ms never shows as receiving', async() => {
+    test('a JSON response that ends within 100 ms never shows as receiving', async () => {
         const send = controlledSend()
         const sent = store.dispatch('sendRequest', tab)
         await send.started
@@ -422,7 +423,7 @@ describe('sendRequest while a response arrives', () => {
         expect(tab._id in store.state.requestResponseStreams).toBe(false)
     })
 
-    test('a JSON response still open at 300 ms shows as receiving', async() => {
+    test('a JSON response still open at 300 ms shows as receiving', async () => {
         const send = controlledSend()
         const sent = store.dispatch('sendRequest', tab)
         await send.started
@@ -438,7 +439,7 @@ describe('sendRequest while a response arrives', () => {
         expect(store.state.requestResponseStatus[tab._id]).toBe('loaded')
     })
 
-    test('the size and revision refresh at most once per 100 ms across 50 chunks', async() => {
+    test('the size and revision refresh at most once per 100 ms across 50 chunks', async () => {
         const send = controlledSend()
         const sent = store.dispatch('sendRequest', tab)
         await send.started
@@ -449,10 +450,10 @@ describe('sendRequest while a response arrives', () => {
         let lastRevision = stream.revision
         const chunk = new Uint8Array(1000)
 
-        for(let i = 0; i < 50; i++) {
+        for (let i = 0; i < 50; i++) {
             send.progress({ type: 'data', bytes: chunk })
             vi.advanceTimersByTime(10)
-            if(stream.revision !== lastRevision) {
+            if (stream.revision !== lastRevision) {
                 expect(stream.revision).toBe(lastRevision + 1)
                 lastRevision = stream.revision
                 bumpTimes.push(Date.now())
@@ -473,7 +474,7 @@ describe('sendRequest while a response arrives', () => {
         await sent
     })
 
-    test('at the end the response is saved once with its bodyIncomplete, the status is loaded and the entry is gone', async() => {
+    test('at the end the response is saved once with its bodyIncomplete, the status is loaded and the entry is gone', async () => {
         const send = controlledSend()
         const sent = store.dispatch('sendRequest', tab)
         await send.started
@@ -493,7 +494,7 @@ describe('sendRequest while a response arrives', () => {
         expect(tab._id in store.state.requestResponseStreams).toBe(false)
     })
 
-    test('a complete response is saved without a bodyIncomplete field', async() => {
+    test('a complete response is saved without a bodyIncomplete field', async () => {
         const send = controlledSend()
         const sent = store.dispatch('sendRequest', tab)
         await send.started
@@ -506,7 +507,7 @@ describe('sendRequest while a response arrives', () => {
         expect('bodyIncomplete' in vi.mocked(createResponse).mock.calls[0][1]).toBe(false)
     })
 
-    test('the arrival time of each chunk is kept in memory for the response, never saved, and dropped with it', async() => {
+    test('the arrival time of each chunk is kept in memory for the response, never saved, and dropped with it', async () => {
         const send = controlledSend()
         const sent = store.dispatch('sendRequest', tab)
         await send.started
@@ -532,7 +533,7 @@ describe('sendRequest while a response arrives', () => {
         await vi.waitFor(() => expect('response-1' in store.state.responseChunkTimes).toBe(false))
     })
 
-    test('no arrival times are kept when a script replaced the body, or when nothing arrived as chunks', async() => {
+    test('no arrival times are kept when a script replaced the body, or when nothing arrived as chunks', async () => {
         const send = controlledSend()
         const sent = store.dispatch('sendRequest', tab)
         await send.started
@@ -548,7 +549,7 @@ describe('sendRequest while a response arrives', () => {
         expect('response-2' in store.state.responseChunkTimes).toBe(false)
     })
 
-    test('an earlier send still arriving on the tab never writes into a newer send\'s entry, nor removes it', async() => {
+    test('an earlier send still arriving on the tab never writes into a newer send\'s entry, nor removes it', async () => {
         // the history of an open tab is already loaded
         store.state.responses[tab._id] = []
         const first = controlledSend()
@@ -584,7 +585,7 @@ describe('sendRequest while a response arrives', () => {
         expect(store.state.requestResponseStatus[tab._id]).toBe('loaded')
     })
 
-    test('a body that ended stays on the loading overlay while its scripts or the save take long', async() => {
+    test('a body that ended stays on the loading overlay while its scripts or the save take long', async () => {
         const send = controlledSend()
         const sent = store.dispatch('sendRequest', tab)
         await send.started
@@ -600,7 +601,7 @@ describe('sendRequest while a response arrives', () => {
         expect(store.state.requestResponseStatus[tab._id]).toBe('loaded')
     })
 
-    test('an event stream whose body ended shows every chunk and says it ended, while its scripts run', async() => {
+    test('an event stream whose body ended shows every chunk and says it ended, while its scripts run', async () => {
         const send = controlledSend()
         const sent = store.dispatch('sendRequest', tab)
         await send.started
@@ -622,7 +623,7 @@ describe('sendRequest while a response arrives', () => {
         await sent
     })
 
-    test('sending again cancels the earlier send on the tab, which no control could reach once replaced, and leaves it out of history, Send with interval does not', async() => {
+    test('sending again cancels the earlier send on the tab, which no control could reach once replaced, and leaves it out of history, Send with interval does not', async () => {
         // the history of an open tab is already loaded
         store.state.responses[tab._id] = []
         const first = controlledSend()
@@ -652,7 +653,7 @@ describe('sendRequest while a response arrives', () => {
         expect(vi.mocked(createResponse).mock.calls.map(call => call[1]._id).sort()).toEqual(['response-2', 'response-3'])
     })
 
-    test('an earlier send whose body had ended before sending again is still saved, its scripts were all that ran on', async() => {
+    test('an earlier send whose body had ended before sending again is still saved, its scripts were all that ran on', async () => {
         // the history of an open tab is already loaded
         store.state.responses[tab._id] = []
         const first = controlledSend()
@@ -673,7 +674,7 @@ describe('sendRequest while a response arrives', () => {
         expect(store.state.responses[tab._id].map((response: any) => response._id).sort()).toEqual(['response-1', 'response-2'])
     })
 
-    test('an earlier send that ends while a newer one is receiving leaves the newer one on screen, with its Stop', async() => {
+    test('an earlier send that ends while a newer one is receiving leaves the newer one on screen, with its Stop', async () => {
         // the history of an open tab is already loaded
         store.state.responses[tab._id] = []
         const first = controlledSend()
@@ -706,7 +707,7 @@ describe('sendRequest while a response arrives', () => {
         expect(store.state.requestResponses[tab._id]._id).toBe('response-2')
     })
 
-    test('an earlier send that ends while a newer one waits for its body keeps the overlay, and never flips the view back and forth', async() => {
+    test('an earlier send that ends while a newer one waits for its body keeps the overlay, and never flips the view back and forth', async () => {
         // the history of an open tab is already loaded
         store.state.responses[tab._id] = []
         const first = controlledSend()
@@ -714,7 +715,7 @@ describe('sendRequest while a response arrives', () => {
         const statuses: string[] = []
         const recordStatus = () => {
             const status = store.state.requestResponseStatus[tab._id]
-            if(statuses[statuses.length - 1] !== status) {
+            if (statuses[statuses.length - 1] !== status) {
                 statuses.push(status)
             }
         }
@@ -745,7 +746,7 @@ describe('sendRequest while a response arrives', () => {
         expect(store.state.requestResponses[tab._id]._id).toBe('response-2')
     })
 
-    test('a late head of an earlier send neither shows nor replaces the newer send\'s entry', async() => {
+    test('a late head of an earlier send neither shows nor replaces the newer send\'s entry', async () => {
         // the history of an open tab is already loaded
         store.state.responses[tab._id] = []
         const first = controlledSend()
@@ -782,7 +783,7 @@ describe('sendRequest while a response arrives', () => {
 describe('Collection Runner with a body cut short', () => {
     const request = (id: string) => ({ _id: id, _type: 'request', name: id, parentId: 'folder', workspaceId: 'workspace-id', method: 'GET', url: 'http://127.0.0.1/' }) as CollectionItem
 
-    test('a timed out body counts as a failed request with its reason, a complete one as passed', async() => {
+    test('a timed out body counts as a failed request with its reason, a complete one as passed', async () => {
         vi.clearAllMocks()
         vi.mocked(getResponsesByCollectionId).mockResolvedValue([])
         const cutShort = request('cut-short')
@@ -808,7 +809,7 @@ describe('Collection Runner with a body cut short', () => {
         expect(store.state.collectionRunner.results[1].error).toBeUndefined()
     })
 
-    test('a run whose send a user Send replaces counts as cancelled, not as the response of the user Send or a pass', async() => {
+    test('a run whose send a user Send replaces counts as cancelled, not as the response of the user Send or a pass', async () => {
         vi.clearAllMocks()
         vi.mocked(getResponsesByCollectionId).mockResolvedValue([])
         const running = request('running')
@@ -867,14 +868,14 @@ describe('setActiveTab', () => {
         vi.unstubAllGlobals()
     })
 
-    test('an item of a type only a newer version knows opens as it is, its url and parameters untouched', async() => {
+    test('an item of a type only a newer version knows opens as it is, its url and parameters untouched', async () => {
         const newer = { _id: 'newer-1', _type: 'newer-kind', workspaceId: 'workspace-id', url: 'x://y?a=1', parameters: [] } as unknown as CollectionItem
         await store.dispatch('setActiveTab', newer)
         expect(newer.url).toBe('x://y?a=1')
         expect(newer.parameters).toEqual([])
     })
 
-    test('an HTTP request with a query its parameters lack gets them, as it always has', async() => {
+    test('an HTTP request with a query its parameters lack gets them, as it always has', async () => {
         const request = { _id: 'request-1', _type: 'request', workspaceId: 'workspace-id', url: 'http://example.test/?a=1', parameters: [] } as unknown as CollectionItem
         await store.dispatch('setActiveTab', request)
         expect(request.parameters).toEqual([{ name: 'a', value: '1' }])
@@ -903,7 +904,7 @@ describe('response history mutations given an item other than the active tab', (
         expect(store.state.requestResponseStatus[activeTab._id]).toBe('loaded')
     }
 
-    test('clearResponseHistory clears the given item\'s history only', async() => {
+    test('clearResponseHistory clears the given item\'s history only', async () => {
         store.commit('clearResponseHistory', grpcItem)
         await vi.waitFor(() => expect(store.state.responses[grpcItem._id]).toEqual([]))
 
@@ -914,7 +915,7 @@ describe('response history mutations given an item other than the active tab', (
         expectActiveTabUntouched()
     })
 
-    test('deleteCurrentlyActiveResponse deletes the given item\'s shown entry only', async() => {
+    test('deleteCurrentlyActiveResponse deletes the given item\'s shown entry only', async () => {
         store.commit('deleteCurrentlyActiveResponse', grpcItem)
         await vi.waitFor(() => expect(store.state.responses[grpcItem._id].map((entry: any) => entry._id)).toEqual(['grpc-2']))
 
@@ -925,7 +926,7 @@ describe('response history mutations given an item other than the active tab', (
         expectActiveTabUntouched()
     })
 
-    test('renameCurrentlyActiveResponse renames the given item\'s shown entry only', async() => {
+    test('renameCurrentlyActiveResponse renames the given item\'s shown entry only', async () => {
         store.commit('renameCurrentlyActiveResponse', { name: 'Renamed', collectionItem: grpcItem })
         await vi.waitFor(() => expect(updateResponse).toHaveBeenCalledOnce())
 
@@ -935,7 +936,7 @@ describe('response history mutations given an item other than the active tab', (
         expectActiveTabUntouched()
     })
 
-    test('renameCurrentlyActiveResponse renames the history entry too when the shown one is a copy, as after a send', async() => {
+    test('renameCurrentlyActiveResponse renames the history entry too when the shown one is a copy, as after a send', async () => {
         // saveResponse keeps a copy of the entry it shows
         store.state.requestResponses[grpcItem._id] = { ...store.state.responses[grpcItem._id][0] }
         store.commit('renameCurrentlyActiveResponse', { name: 'Renamed', collectionItem: grpcItem })
@@ -961,7 +962,7 @@ describe('refreshWorkspaceCollection with running gRPC calls', () => {
         resetGrpcCalls()
     })
 
-    test('a call moves to its item\'s new id, and one whose new id the reloaded collection lacks is not moved there', async() => {
+    test('a call moves to its item\'s new id, and one whose new id the reloaded collection lacks is not moved there', async () => {
         grpcCalls[itemKey('Renamed.json')] = runningCall('call-renamed')
         grpcCalls[itemKey('Gone.json')] = runningCall('call-gone')
         vi.mocked(getCollectionForWorkspace).mockResolvedValue({
@@ -1010,7 +1011,7 @@ describe('a gRPC call of an item whose history was never loaded', () => {
 
     // such as a tab never opened in the main window, detached into a window of its own: its history first loads with
     // the save, which reads it from the database while the call is already shown
-    test('stays shown once it ends, and is the first entry of its history', async() => {
+    test('stays shown once it ends, and is the first entry of its history', async () => {
         vi.mocked(getResponsesByCollectionId).mockImplementation(() => new Promise(resolve => setTimeout(() => resolve([]), 5)))
 
         await startGrpcCallForItem(store, item)
@@ -1035,7 +1036,7 @@ describe('gRPC calls of two file workspaces with an item at the same path', () =
         store.state.requestResponseStatus['Chat.json'] = 'loaded'
     }
 
-    beforeEach(async() => {
+    beforeEach(async () => {
         vi.clearAllMocks()
         resetGrpcCalls()
         vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => undefined, removeItem: () => undefined })
@@ -1069,7 +1070,7 @@ describe('gRPC calls of two file workspaces with an item at the same path', () =
 
     // the first workspace's call ends and is saved there, under its own item, and the open workspace's item still
     // shows its own history
-    const expectCallASavedInItsWorkspace = async() => {
+    const expectCallASavedInItsWorkspace = async () => {
         expect(callA.cancel).not.toHaveBeenCalled()
         onEventA({ type: 'status', code: 0, name: 'OK', details: '', trailers: [], time: 2 })
         await vi.waitFor(() => expect(createResponse).toHaveBeenCalledOnce())
@@ -1078,25 +1079,25 @@ describe('gRPC calls of two file workspaces with an item at the same path', () =
         expect(store.state.requestResponses['Chat.json']).toEqual(historyEntryB)
     }
 
-    test('deleting the item in the other workspace leaves the call running', async() => {
+    test('deleting the item in the other workspace leaves the call running', async () => {
         await store.dispatch('deleteCollectionItem', item('wB'))
         showHistoryB()
         await expectCallASavedInItsWorkspace()
     })
 
-    test('renaming the item in the other workspace leaves the call with its own item', async() => {
+    test('renaming the item in the other workspace leaves the call with its own item', async () => {
         vi.mocked(getCollectionForWorkspace).mockResolvedValue({ collection: [item('wB', 'Talk.json')], workspace: null, idMap: new Map([['Chat.json', 'Talk.json']]) } as any)
         await store.dispatch('refreshWorkspaceCollection')
         await expectCallASavedInItsWorkspace()
     })
 
-    test('the call ending while the other workspace is open is saved in its own workspace only', async() => {
+    test('the call ending while the other workspace is open is saved in its own workspace only', async () => {
         await expectCallASavedInItsWorkspace()
     })
 })
 
 
-test('a history load finishing after a workspace switch saves only to the call workspace', async() => {
+test('a history load finishing after a workspace switch saves only to the call workspace', async () => {
     vi.clearAllMocks()
     const collectionId = 'Chat.json'
     const savedA = { _id: 'a-old', collectionId, createdAt: 1, grpc: { events: [] } }
@@ -1124,4 +1125,30 @@ test('a history load finishing after a workspace switch saves only to the call w
         delete store.state.responses[collectionId]
         delete store.state.requestResponses[collectionId]
     }
+})
+
+describe('sendRequest with a locked secret', () => {
+    const tab = { _id: 'secret-tab', _type: 'request', name: 'Secret', parentId: null, workspaceId: 'workspace-id', method: 'GET', url: 'https://example.com/{{token}}' } as CollectionItem
+
+    afterEach(() => {
+        lockSecretSession()
+        delete (window as any).createPrompt
+    })
+
+    test('canceling the password does not send', async () => {
+        await createSecretSession('correct horse', 1_000)
+        const globalSecrets = await sealSecretValues({ token: 'super-secret-value' })
+        lockSecretSession()
+        store.state.activeWorkspace = { _id: 'workspace-id', name: 'Workspace', globalSecrets, environment: {}, environments: [{ name: 'Default', environment: {} }], currentEnvironment: 'Default' } as Workspace
+        store.state.collection = [tab]
+        store.state.plugins.global = []
+        store.state.plugins.workspace = []
+        delete store.state.requestResponseStatus[tab._id]
+            ; (window as any).createPrompt = vi.fn(async () => null)
+
+        await store.dispatch('sendRequest', { collectionItem: tab, cancelEarlierSends: true })
+
+        expect(handleRequest).not.toHaveBeenCalled()
+        expect(store.state.requestResponseStatus[tab._id]).toBeUndefined()
+    })
 })
