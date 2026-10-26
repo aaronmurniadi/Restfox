@@ -70,7 +70,15 @@
                             @dragend="onDragEnd"
                         >
                             <div style="display: flex; align-items: center">
+                                <span
+                                    v-if="readEnvironmentEmoji(environment)"
+                                    class="environment-emoji"
+                                    >{{
+                                        readEnvironmentEmoji(environment)
+                                    }}</span
+                                >
                                 <i
+                                    v-else
                                     class="fa fa-circle"
                                     :style="{
                                         color: environment.color,
@@ -232,6 +240,19 @@
             >
                 <div @click="renameEnvironment">Rename</div>
                 <div @click="changeEnvironmentColor">Change color</div>
+                <div @click="setEnvironmentEmoji">
+                    {{
+                        readEnvironmentEmoji(clickedContextMenuEnvironment)
+                            ? "Change emoji"
+                            : "Set emoji"
+                    }}
+                </div>
+                <div
+                    v-if="readEnvironmentEmoji(clickedContextMenuEnvironment)"
+                    @click="clearEnvironmentEmoji"
+                >
+                    Use color
+                </div>
                 <div @click="deleteEnvironment">Delete</div>
             </div>
         </template>
@@ -258,6 +279,7 @@ import {
     attachSecretPaths,
 } from "@/utils/environment-secrets";
 import { convertPostmanVariableValues } from "@/parsers/postman";
+import { environmentEmoji, isSingleEmoji } from "@/utils/environment-marker";
 
 export default {
     props: {
@@ -865,6 +887,9 @@ export default {
 
             this.hideEnvironmentContextMenu();
         },
+        readEnvironmentEmoji(environment) {
+            return environmentEmoji(environment);
+        },
         rememberEnvironments() {
             if (this.workspace && "environments" in this.workspace === false) {
                 this.workspace.environments = this.environments;
@@ -876,6 +901,38 @@ export default {
             ) {
                 this.collectionItem.environments = this.environments;
             }
+        },
+        async setEnvironmentEmoji() {
+            const picked = await window.createPrompt(
+                "Choose an emoji for the environment",
+                this.readEnvironmentEmoji(this.clickedContextMenuEnvironment) ??
+                    "",
+                [],
+                { emoji: true },
+            );
+
+            if (picked === null) {
+                this.hideEnvironmentContextMenu();
+                return;
+            }
+
+            const emoji = typeof picked === "string" ? picked.trim() : "";
+            if (!isSingleEmoji(emoji)) {
+                this.$toast.error("Enter a single emoji");
+                this.hideEnvironmentContextMenu();
+                return;
+            }
+
+            this.clickedContextMenuEnvironment.emoji = emoji;
+            this.rememberEnvironments();
+            this.saveEnvironments();
+            this.hideEnvironmentContextMenu();
+        },
+        clearEnvironmentEmoji() {
+            delete this.clickedContextMenuEnvironment.emoji;
+            this.rememberEnvironments();
+            this.saveEnvironments();
+            this.hideEnvironmentContextMenu();
         },
         async changeEnvironmentColor() {
             const newEnvironmentColor = await window.createPrompt(
@@ -1232,6 +1289,15 @@ export default {
 .context-menu > div:hover {
     background-color: slateblue;
     color: white;
+}
+
+.environment-emoji {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1em;
+    margin-right: 0.5rem;
+    line-height: 1;
 }
 
 .ml-1rem {

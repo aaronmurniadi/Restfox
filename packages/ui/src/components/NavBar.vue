@@ -82,7 +82,13 @@
                         style="padding-left: 0; padding-right: 0.5rem"
                         @click="toggleEnvSelectorDropdown"
                     >
+                        <span
+                            v-if="currentEnvironmentEmoji"
+                            class="environment-emoji"
+                            >{{ currentEnvironmentEmoji }}</span
+                        >
                         <i
+                            v-else
                             class="fa fa-circle"
                             :style="{ color: currentEnvironmentColor }"
                         ></i
@@ -258,6 +264,10 @@ import { getCollectionForWorkspace } from "@/db";
 import constants from "../constants";
 import ContextMenu from "@/components/ContextMenu.vue";
 import { environmentsForExport } from "@/utils/environment-secrets";
+import {
+    environmentEmoji,
+    environmentOptionLabel,
+} from "@/utils/environment-marker";
 
 export default {
     components: {
@@ -350,6 +360,9 @@ export default {
             return this.environments.find(
                 (env) => env.name === this.currentEnvironment,
             );
+        },
+        currentEnvironmentEmoji() {
+            return environmentEmoji(this.currentEnvironmentRecord);
         },
         currentEnvironmentColor() {
             return (
@@ -590,7 +603,7 @@ export default {
             const list = this.environments.map((item) => {
                 return {
                     type: "option",
-                    label: `<i class="fa fa-circle" style="color:${item.color}"></i>&nbsp;&nbsp;${item.name}`,
+                    label: environmentOptionLabel(item),
                     value: `${item.name}`,
                     class: "context-menu-item-with-left-padding",
                 };
@@ -657,6 +670,13 @@ export default {
     font-weight: 500;
     display: flex;
     align-items: center;
+}
+
+.environment-emoji {
+    display: inline-block;
+    width: 1.1em;
+    text-align: center;
+    line-height: 1;
 }
 
 .right-nav-container {

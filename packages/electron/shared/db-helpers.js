@@ -306,6 +306,9 @@ export function createDbHelpers(fileUtils, deserializeResponseBuffer) {
                 if (env.color) {
                     meta.color = env.color
                 }
+                if (typeof env.emoji === 'string' && env.emoji.trim() !== '') {
+                    meta.emoji = env.emoji.trim()
+                }
                 if (Object.keys(meta).length > 0) {
                     await fileUtils.writeFileJson(path.join(envsDirPath, `${envName}.meta.json`), meta, fsLog, 'Saving environment meta')
                 }

@@ -1,3 +1,5 @@
+import { ENVIRONMENT_EMOJI_CHOICES } from '../utils/environment-marker'
+
 // titles hold names from collection data, and a prompt tag's title, label and default come from it, which may have been imported
 function escapeHtml(text: string) {
     return text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;')
@@ -6,6 +8,7 @@ function escapeHtml(text: string) {
 interface PromptOptions {
     label?: string
     mask?: boolean
+    emoji?: boolean
 }
 
 class AlertConfirmPrompt extends HTMLElement {
@@ -21,7 +24,16 @@ class AlertConfirmPrompt extends HTMLElement {
         let inputHtml = ''
         if (type === 'prompt') {
             // given options, a plain text or password box, whatever the title says
-            if (options) {
+            if (options?.emoji) {
+                inputHtml = `
+                <div style="margin-top: 0.5rem;">
+                    <div class="emoji-choices">
+                        ${ENVIRONMENT_EMOJI_CHOICES.map(emoji => `<button type="button" class="emoji-choice" data-emoji="${emoji}">${emoji}</button>`).join('')}
+                    </div>
+                    <input type="text" value="${escapeHtml(defaultValue ?? '')}" class="dialog-input" id="dialog-input" spellcheck="false" autocomplete="off" placeholder="Or paste an emoji">
+                </div>
+                `
+            } else if (options) {
                 inputHtml = `
                 <div style="margin-top: 0.5rem;">
                     ${options.label !== undefined ? `<div class="dialog-label">${escapeHtml(options.label)}</div>` : ''}
@@ -157,6 +169,12 @@ class AlertConfirmPrompt extends HTMLElement {
 
                 const target = e.composedPath()[0]
 
+                if (target.dataset?.emoji) {
+                    resolve(target.dataset.emoji)
+                    closeModal()
+                    return
+                }
+
                 if (target.id === 'dialog-confirm') {
                     confirm()
                 }
@@ -274,6 +292,31 @@ class AlertConfirmPrompt extends HTMLElement {
             background-color: var(--modal-background-color);
             color: var(--text-color);
             cursor: pointer;
+        }
+
+        .emoji-choices {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            width: 16.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .emoji-choice {
+            width: 1.85rem;
+            height: 1.85rem;
+            font-size: 1.05rem;
+            line-height: 1;
+            border: 1px solid var(--button-border-color);
+            background: var(--button-background-color);
+            color: var(--button-text-color);
+            border-radius: 3px;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .emoji-choice:hover {
+            background: var(--button-hover-background-color);
         }
 
         .dialog-input::selection {

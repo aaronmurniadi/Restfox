@@ -1,29 +1,96 @@
 <template>
     <teleport to="body">
-        <div v-if="show" class="mobile-sheet-overlay" @click.self="$emit('update:show', false)">
+        <div
+            v-if="show"
+            class="mobile-sheet-overlay"
+            @click.self="$emit('update:show', false)"
+        >
             <div class="mobile-sheet">
                 <div class="mobile-sheet-handle-row">
                     <div class="mobile-sheet-handle"></div>
                 </div>
                 <div v-if="title" class="mobile-sheet-title">{{ title }}</div>
                 <div class="mobile-sheet-items">
-                    <template v-for="item in items" :key="item.value ?? item.label">
-                        <div v-if="item.type === 'separator'" class="mobile-sheet-divider"></div>
-                        <div v-else-if="item.type === 'section-header'" class="mobile-sheet-section-header">
-                            <i v-if="item.icon" :class="'fa ' + item.icon"></i>
+                    <template
+                        v-for="item in items"
+                        :key="item.value ?? item.label"
+                    >
+                        <div
+                            v-if="item.type === 'separator'"
+                            class="mobile-sheet-divider"
+                        ></div>
+                        <div
+                            v-else-if="item.type === 'section-header'"
+                            class="mobile-sheet-section-header"
+                        >
+                            <span
+                                v-if="item.emoji"
+                                class="mobile-sheet-emoji"
+                                >{{ item.emoji }}</span
+                            >
+                            <i
+                                v-else-if="item.icon"
+                                :class="'fa ' + item.icon"
+                                :style="
+                                    item.iconColor
+                                        ? { color: item.iconColor }
+                                        : undefined
+                                "
+                            ></i>
                             <span>{{ item.label }}</span>
                         </div>
-                        <div v-else class="mobile-sheet-row" :class="{ 'mobile-sheet-row--danger': item.type === 'danger' }" @click="handleSelect(item.value)">
-                            <i v-if="item.icon" :class="'fa ' + item.icon"></i>
+                        <div
+                            v-else
+                            class="mobile-sheet-row"
+                            :class="{
+                                'mobile-sheet-row--danger':
+                                    item.type === 'danger',
+                            }"
+                            @click="handleSelect(item.value)"
+                        >
+                            <span
+                                v-if="item.emoji"
+                                class="mobile-sheet-emoji"
+                                >{{ item.emoji }}</span
+                            >
+                            <i
+                                v-else-if="item.icon"
+                                :class="'fa ' + item.icon"
+                                :style="
+                                    item.iconColor
+                                        ? { color: item.iconColor }
+                                        : undefined
+                                "
+                            ></i>
                             <div class="mobile-sheet-row-text">
                                 <div class="mobile-sheet-row-label-line">
                                     <span>{{ item.label }}</span>
-                                    <div v-if="item.tags?.length" class="mobile-sheet-row-tags">
-                                        <span v-for="tag in item.tags" :key="tag.text" class="mobile-sheet-tag" :class="tag.color ? `mobile-sheet-tag--${tag.color}` : ''">{{ tag.text }}</span>
+                                    <div
+                                        v-if="item.tags?.length"
+                                        class="mobile-sheet-row-tags"
+                                    >
+                                        <span
+                                            v-for="tag in item.tags"
+                                            :key="tag.text"
+                                            class="mobile-sheet-tag"
+                                            :class="
+                                                tag.color
+                                                    ? `mobile-sheet-tag--${tag.color}`
+                                                    : ''
+                                            "
+                                            >{{ tag.text }}</span
+                                        >
                                     </div>
                                 </div>
-                                <div v-if="item.sublabel" class="mobile-sheet-row-sublabel">
-                                    <span v-if="item.method" :class="`request-method--${item.method}`">{{ item.method }}</span>
+                                <div
+                                    v-if="item.sublabel"
+                                    class="mobile-sheet-row-sublabel"
+                                >
+                                    <span
+                                        v-if="item.method"
+                                        :class="`request-method--${item.method}`"
+                                        >{{ item.method }}</span
+                                    >
                                     <span>{{ item.sublabel }}</span>
                                 </div>
                             </div>
@@ -40,25 +107,25 @@ export default {
     props: {
         show: {
             type: Boolean,
-            required: true
+            required: true,
         },
         title: {
             type: String,
-            default: ''
+            default: "",
         },
         items: {
             type: Array,
-            default: () => []
-        }
+            default: () => [],
+        },
     },
-    emits: ['select', 'update:show'],
+    emits: ["select", "update:show"],
     methods: {
         handleSelect(value) {
-            this.$emit('select', value)
-            this.$emit('update:show', false)
-        }
-    }
-}
+            this.$emit("select", value);
+            this.$emit("update:show", false);
+        },
+    },
+};
 </script>
 
 <style scoped>
@@ -83,8 +150,12 @@ export default {
 }
 
 @keyframes sheet-up {
-    from { transform: translateY(100%); }
-    to { transform: translateY(0); }
+    from {
+        transform: translateY(100%);
+    }
+    to {
+        transform: translateY(0);
+    }
 }
 
 .mobile-sheet-handle-row {
@@ -149,11 +220,17 @@ export default {
     background: var(--sidebar-item-active-color);
 }
 
-.mobile-sheet-row .fa {
+.mobile-sheet-row .fa,
+.mobile-sheet-emoji {
     width: 18px;
     text-align: center;
     color: var(--text-color);
     flex-shrink: 0;
+}
+
+.mobile-sheet-emoji {
+    font-size: 1rem;
+    line-height: 1;
 }
 
 .mobile-sheet-row-text {
@@ -184,9 +261,18 @@ export default {
     color: var(--text-color);
 }
 
-.mobile-sheet-tag--green { background: #75ba24; color: white; }
-.mobile-sheet-tag--yellow { background: #ec8702; color: white; }
-.mobile-sheet-tag--red { background: #e15251; color: white; }
+.mobile-sheet-tag--green {
+    background: #75ba24;
+    color: white;
+}
+.mobile-sheet-tag--yellow {
+    background: #ec8702;
+    color: white;
+}
+.mobile-sheet-tag--red {
+    background: #e15251;
+    color: white;
+}
 
 .mobile-sheet-row-sublabel {
     display: flex;
